@@ -30,7 +30,9 @@
 #define CRecipientFilter C_RecipientFilter
 #endif
 
-
+#if defined( USE_OPENAL )
+#include "openal/openal_loader.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -544,7 +546,7 @@ public:
 	}
 public:
 
-	void EmitSoundByHandle( IRecipientFilter& filter, int entindex, const EmitSound_t & ep, HSOUNDSCRIPTHANDLE& handle )
+	virtual void EmitSoundByHandle( IRecipientFilter& filter, int entindex, const EmitSound_t & ep, HSOUNDSCRIPTHANDLE& handle )
 	{
 		// Pull data from parameters
 		CSoundParameters params;
@@ -671,7 +673,7 @@ public:
 		}
 	}
 
-	void EmitSound( IRecipientFilter& filter, int entindex, const EmitSound_t & ep )
+	virtual void EmitSound( IRecipientFilter& filter, int entindex, const EmitSound_t & ep )
 	{
 		VPROF( "CSoundEmitterSystem::EmitSound (calls engine)" );
 		if ( ep.m_pSoundName && 
@@ -1203,12 +1205,159 @@ public:
 #endif
 };
 
-static CSoundEmitterSystem g_SoundEmitterSystem( "CSoundEmitterSystem" );
+#ifdef USE_OPENAL
+
+class COpenALEmitterSystem : public CSoundEmitterSystem
+{
+public:
+	COpenALEmitterSystem( char const *name ) : CSoundEmitterSystem( name )
+	{
+	}
+
+	virtual char const *Name() { return "COpenALEmitterSystem"; }
+
+public:
+
+	void EmitSoundByHandle( IRecipientFilter& filter, int entindex, const EmitSound_t & ep, HSOUNDSCRIPTHANDLE& handle )
+	{
+#ifdef CLIENT_DLL
+		IOpenALSample *pSample = g_OpenALLoader.Load( PSkipSoundChars( ep.m_pSoundName ) );
+
+		if ( pSample != NULL && pSample->IsReady() )
+		{
+			pSample->SetEntity( CBaseEntity::Instance( entindex ) );
+
+			if ( ep.m_pOrigin != NULL )
+			{
+				pSample->SetPosition( *ep.m_pOrigin );
+			}
+
+			pSample->SetGain( ep.m_flVolume );
+			pSample->Play();
+
+			return;
+		}
+
+		// Pull data from parameters
+		CSoundParameters params;
+
+		// Try to deduce the actor's gender
+		gender_t gender = GENDER_NONE;
+		CBaseEntity *ent = CBaseEntity::Instance( entindex );
+		if ( ent )
+		{
+			char const *actorModel = STRING( ent->GetModelName() );
+			gender = soundemitterbase->GetActorGender( actorModel );
+		}
+
+		if ( !soundemitterbase->GetParametersForSoundEx( ep.m_pSoundName, handle, params, gender, true ) )
+			return;
+
+		if ( !params.soundname[0] )
+			return;
+
+		pSample = g_OpenALLoader.Load( PSkipSoundChars( params.soundname ) );
+
+		if ( pSample != NULL && pSample->IsReady() )
+		{
+			pSample->SetEntity( CBaseEntity::Instance( entindex ) );
+
+			if ( ep.m_pOrigin != NULL )
+			{
+				pSample->SetPosition( *ep.m_pOrigin );
+			}
+
+			pSample->SetGain( ep.m_flVolume );
+			pSample->Play();
+		}
+		else
+		{
+			// Old-School system
+			CSoundEmitterSystem::EmitSoundByHandle( filter, entindex, ep, handle );
+		}
+#else
+		CSoundEmitterSystem::EmitSoundByHandle( filter, entindex, ep, handle );
+#endif
+	}
+
+	void EmitSound( IRecipientFilter& filter, int entindex, const EmitSound_t & ep )
+	{
+#ifdef CLIENT_DLL
+		IOpenALSample *pSample = g_OpenALLoader.Load( PSkipSoundChars( ep.m_pSoundName ) );
+
+		if ( pSample != NULL && pSample->IsReady() )
+		{
+			pSample->SetEntity( CBaseEntity::Instance( entindex ) );
+
+			if ( ep.m_pOrigin != NULL )
+			{
+				pSample->SetPosition( *ep.m_pOrigin );
+			}
+
+			pSample->SetGain( ep.m_flVolume );
+			pSample->Play();
+			return;
+		}
+
+		// Pull data from parameters
+		CSoundParameters params;
+
+		// Try to deduce the actor's gender
+		gender_t gender = GENDER_NONE;
+		CBaseEntity *ent = CBaseEntity::Instance( entindex );
+		if ( ent )
+		{
+			char const *actorModel = STRING( ent->GetModelName() );
+			gender = soundemitterbase->GetActorGender( actorModel );
+		}
+
+		if ( !soundemitterbase->GetParametersForSound( ep.m_pSoundName, params, gender ) )
+			return;
+
+		if ( !params.soundname[0] )
+			return;
+
+		pSample = g_OpenALLoader.Load( PSkipSoundChars( params.soundname ) );
+		if ( pSample != NULL && pSample->IsReady() )
+		{
+			pSample->SetEntity( CBaseEntity::Instance( entindex ) );
+
+			if ( ep.m_pOrigin != NULL )
+			{
+				pSample->SetPosition( *ep.m_pOrigin );
+			}
+
+			pSample->SetGain( ep.m_flVolume );
+
+			pSample->Play();
+		}
+		else
+		{
+			CSoundEmitterSystem::EmitSound( filter, entindex, ep );
+		}
+#else
+		CSoundEmitterSystem::EmitSound( filter, entindex, ep );
+#endif
+	}
+};
+
+static COpenALEmitterSystem g_SoundEmitterSystem( "COpenALEmitterSystem" );
 
 IGameSystem *SoundEmitterSystem()
 {
 	return &g_SoundEmitterSystem;
 }
+
+#else
+
+static CSoundEmitterSystem g_SoundEmitterSystem( "CSoundEmitterSystem" );
+
+IGameSystem *SoundEmitterSystem()
+{
+    return &g_SoundEmitterSystem;
+}
+
+#endif
 
 void SoundSystemPreloadSounds( void )
 {
