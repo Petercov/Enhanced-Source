@@ -7,4 +7,9 @@
 //	    _ps20b.vcs
 //	    _vs20.vcs
 //
-Water_ps2x.fxc
+
+// Water_ps2x.fxc
+
+// ao_testr_ps20.fxc
+
+lightmappedgeneric_ps2x.fxc

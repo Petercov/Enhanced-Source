@@ -135,8 +135,8 @@ BEGIN_VS_SHADER_FLAGS( BlurFilterY, "Help for BlurFilterY", SHADER_NOT_EDITABLE 
 			v[3] = 0.0f;
 			pShaderAPI->SetPixelShaderConstant( 5, v, 1 );
 
-			DECLARE_DYNAMIC_VERTEX_SHADER( blurfilter_ps20 );
-			SET_DYNAMIC_VERTEX_SHADER( blurfilter_ps20 );
+			DECLARE_DYNAMIC_VERTEX_SHADER( blurfilter_vs20 );
+			SET_DYNAMIC_VERTEX_SHADER( blurfilter_vs20 );
 
 			if( g_pHardwareConfig->SupportsPixelShaders_2_b() )
 			{

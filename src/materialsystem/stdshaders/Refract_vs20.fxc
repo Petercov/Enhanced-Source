@@ -88,11 +88,6 @@ VS_OUTPUT main( const VS_INPUT v )
 	worldNormal = mul( vObjNormal, ( float3x3 )cModel[0] );
 #endif
 
-	// Normalize vectors
-	worldNormal.xyz = normalize( worldNormal.xyz );
-	worldTangentS.xyz = normalize( worldTangentS.xyz );
-	worldTangentT.xyz = normalize( worldTangentT.xyz );
-
 	// World normal
 	o.vWorldNormal.xyz = normalize( worldNormal.xyz );
 
@@ -109,9 +104,7 @@ VS_OUTPUT main( const VS_INPUT v )
 	vRefractPos = (vRefractPos + vProjPos.w) * 0.5f;
 
 	// Adjust for current viewport
-#if defined( _X360 )
 	vRefractPos.xy = ( ( ( vRefractPos.xy / vProjPos.w ) * g_vViewportMad.xy ) + g_vViewportMad.zw ) * vProjPos.w;
-#endif
 
 	// Refraction transform
 	o.vRefractXYW = float3(vRefractPos.x, vRefractPos.y, vProjPos.w);
@@ -142,7 +135,7 @@ VS_OUTPUT main( const VS_INPUT v )
 
 
 	// Tangent space transform
-	o.vWorldNormal.xyz = worldNormal.xyz;
+	o.vWorldNormal.xyz = normalize( worldNormal.xyz );
 	o.vWorldTangent.xyz = worldTangentS.xyz;
 	o.vWorldBinormal.xyz = worldTangentT.xyz;
 

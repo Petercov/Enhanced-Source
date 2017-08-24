@@ -9,6 +9,10 @@
 #include "convar.h"
 #include "refract_dx9_helper.h"
 
+#ifdef DEFERRED
+#include "deferred_includes.h"
+#endif // DEFERRED
+
 // NOTE: This has to be the last file included!
 #include "tier0/memdbgon.h"
 
@@ -47,8 +51,6 @@ BEGIN_VS_SHADER( Refract_DX90, "Help for Refract" )
 		SHADER_PARAM( MAGNIFYENABLE, SHADER_PARAM_TYPE_BOOL, "0", "Enable magnification of refracted image around the $magnifyCenter screen position by $magnifyScale" )
 		SHADER_PARAM( MAGNIFYCENTER, SHADER_PARAM_TYPE_VEC2, "[0 0]", "Magnify refracted image around this screen position" )
 		SHADER_PARAM( MAGNIFYSCALE, SHADER_PARAM_TYPE_FLOAT, "0", "Magnify refracted image by this factor" )
-		SHADER_PARAM( LOCALREFRACT, SHADER_PARAM_TYPE_BOOL, "0", "" )
-		SHADER_PARAM( LOCALREFRACTDEPTH, SHADER_PARAM_TYPE_FLOAT, "0", "" )
 	END_SHADER_PARAMS
 // FIXME: doesn't support Fresnel!
 
@@ -82,8 +84,6 @@ BEGIN_VS_SHADER( Refract_DX90, "Help for Refract" )
 		info.m_nMagnifyEnable = MAGNIFYENABLE;
 		info.m_nMagnifyCenter = MAGNIFYCENTER;
 		info.m_nMagnifyScale = MAGNIFYSCALE;
-		info.m_nLocalRefract = LOCALREFRACT;
-		info.m_nLocalRefractDepth = LOCALREFRACTDEPTH;
 	}
 
 	SHADER_INIT_PARAMS()
@@ -107,6 +107,22 @@ BEGIN_VS_SHADER( Refract_DX90, "Help for Refract" )
 
 	SHADER_DRAW
 	{
+#ifdef DEFERRED
+		const bool bDeferredActive = GetDeferredExt()->IsDeferredLightingEnabled();
+		if( bDeferredActive )
+		{
+			const int iDeferredRenderStage = pShaderAPI ?
+				pShaderAPI->GetIntRenderingParameter( INT_RENDERPARM_DEFERRED_RENDER_STAGE )
+				: DEFERRED_RENDER_STAGE_INVALID;
+
+			if( pShaderShadow == NULL && iDeferredRenderStage != DEFERRED_RENDER_STAGE_COMPOSITION )
+			{
+				Draw( false );
+				return;
+			}
+		}
+#endif // DEFERRED
+
 		Refract_DX9_Vars_t info;
 		SetupVars( info );
 		

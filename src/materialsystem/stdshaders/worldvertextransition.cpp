@@ -12,12 +12,15 @@
 #include "lightmappedgeneric_dx9_helper.h"
 #include "worldvertextransition_dx8_helper.h"
 
+#ifdef DEFERRED
+#include "IDeferredExt.h"
+#endif // DEFERRED
+
 // NOTE: This has to be the last file included!
 #include "tier0/memdbgon.h"
 
 
 static LightmappedGeneric_DX9_Vars_t s_info;
-
 
 DEFINE_FALLBACK_SHADER( WorldVertexTransition, WorldVertexTransition_DX9 )
 
@@ -66,6 +69,14 @@ BEGIN_VS_SHADER( WorldVertexTransition_DX9, "Help for WorldVertexTransition" )
 		SHADER_PARAM( SSBUMP, SHADER_PARAM_TYPE_INTEGER, "0", "whether or not to use alternate bumpmap format with height" )
 		SHADER_PARAM( SEAMLESS_SCALE, SHADER_PARAM_TYPE_FLOAT, "0", "Scale factor for 'seamless' texture mapping. 0 means to use ordinary mapping" )
 		SHADER_PARAM( FOW, SHADER_PARAM_TYPE_TEXTURE, "", "FoW Render Target" )
+
+		// Deferred:
+		SHADER_PARAM( PHONG_EXP, SHADER_PARAM_TYPE_FLOAT, "", "" )
+		SHADER_PARAM( PHONG_EXP2, SHADER_PARAM_TYPE_FLOAT, "", "" )
+		SHADER_PARAM( ALPHATESTREFERENCE, SHADER_PARAM_TYPE_FLOAT, "0.0", "" )	
+
+		SHADER_PARAM( OFFSETTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Offset texture" )
+		SHADER_PARAM( OFFSETSCALE, SHADER_PARAM_TYPE_TEXTURE, "", "Offset texture" )
 	END_SHADER_PARAMS
 
 	void SetupVars( WorldVertexTransitionEditor_DX8_Vars_t& info )
@@ -126,6 +137,44 @@ BEGIN_VS_SHADER( WorldVertexTransition_DX9, "Help for WorldVertexTransition" )
 		info.m_nAlphaTestReference = -1;
 
 		info.m_nFoW = FOW;
+
+		info.m_nOffsetTexture = OFFSETTEXTURE;
+		info.m_nOffsetScale = OFFSETSCALE;
+	}
+
+	void SetupParmsGBuffer( defParms_gBuffer &p )
+	{
+		p.bModel = false;
+
+		p.iAlbedo = BASETEXTURE;
+		p.iBumpmap = BUMPMAP;
+		p.iSSBump = SSBUMP;
+
+		p.iPhongExp = PHONG_EXP;
+		p.iPhongExp2 = PHONG_EXP2;
+
+		p.iAlphatestRef = ALPHATESTREFERENCE;
+	}
+
+	void SetupParmsShadow( defParms_shadow &p )
+	{
+		p.bModel = false;
+		p.iAlbedo = BASETEXTURE;
+		p.iAlbedo2 = BASETEXTURE2;
+
+		p.iAlphatestRef = ALPHATESTREFERENCE;
+	}
+
+	bool DrawToGBuffer( IMaterialVar **params )
+	{
+#if DEFCFG_DEFERRED_SHADING == 1
+		return true;
+#else
+		const bool bIsDecal = IS_FLAG_SET( MATERIAL_VAR_DECAL );
+		const bool bTranslucent = IS_FLAG_SET( MATERIAL_VAR_TRANSLUCENT );
+
+		return !bTranslucent && !bIsDecal;
+#endif
 	}
 
 	SHADER_FALLBACK
@@ -137,12 +186,36 @@ BEGIN_VS_SHADER( WorldVertexTransition_DX9, "Help for WorldVertexTransition" )
 	{
 		SetupVars( s_info );
 		InitParamsLightmappedGeneric_DX9( this, params, pMaterialName, s_info );
+
+		bool bDeferredActive = GetDeferredExt()->IsDeferredLightingEnabled();
+		if( bDeferredActive )
+		{
+			defParms_gBuffer parms_gbuffer;
+			SetupParmsGBuffer( parms_gbuffer );
+			InitParmsGBuffer( parms_gbuffer, this, params );
+		
+			defParms_shadow parms_shadow;
+			SetupParmsShadow( parms_shadow );
+			InitParmsShadowPass( parms_shadow, this, params );
+		}
 	}
 
 	SHADER_INIT
 	{
 		SetupVars( s_info );
 		InitLightmappedGeneric_DX9( this, params, s_info );
+
+		bool bDeferredActive = GetDeferredExt()->IsDeferredLightingEnabled();
+		if( bDeferredActive )
+		{
+			defParms_gBuffer parms_gbuffer;
+			SetupParmsGBuffer( parms_gbuffer );
+			InitPassGBuffer( parms_gbuffer, this, params );
+
+			defParms_shadow parms_shadow;
+			SetupParmsShadow( parms_shadow );
+			InitPassShadowPass( parms_shadow, this, params );
+		}
 	}
 
 	SHADER_DRAW
@@ -155,7 +228,59 @@ BEGIN_VS_SHADER( WorldVertexTransition_DX9, "Help for WorldVertexTransition" )
 // 			return;
 // 		}
 
-		DrawLightmappedGeneric_DX9( this, params, pShaderAPI, pShaderShadow, s_info, pContextDataPtr );
+		bool bDrawComposite = true;
+		bool bDeferredActive = GetDeferredExt()->IsDeferredLightingEnabled();
+		if( bDeferredActive )
+		{
+			if ( pShaderAPI != NULL && *pContextDataPtr == NULL )
+				*pContextDataPtr = new CLightmappedGeneric_DX9_Context();
+
+			CDeferredPerMaterialContextData *pDefContext = reinterpret_cast< CDeferredPerMaterialContextData* >(*pContextDataPtr);
+
+			const int iDeferredRenderStage = pShaderAPI ?
+				pShaderAPI->GetIntRenderingParameter( INT_RENDERPARM_DEFERRED_RENDER_STAGE )
+				: DEFERRED_RENDER_STAGE_INVALID;
+
+			const bool bDrawToGBuffer = DrawToGBuffer( params );
+
+			Assert( pShaderAPI == NULL ||
+				iDeferredRenderStage != DEFERRED_RENDER_STAGE_INVALID );
+
+			if ( bDrawToGBuffer )
+			{
+				if ( pShaderShadow != NULL ||
+					iDeferredRenderStage == DEFERRED_RENDER_STAGE_GBUFFER )
+				{
+					defParms_gBuffer parms_gbuffer;
+					SetupParmsGBuffer( parms_gbuffer );
+					DrawPassGBuffer( parms_gbuffer, this, params, pShaderShadow, pShaderAPI,
+						vertexCompression, pDefContext );
+				}
+				else
+					Draw( false );
+
+				if ( pShaderShadow != NULL ||
+					iDeferredRenderStage == DEFERRED_RENDER_STAGE_SHADOWPASS )
+				{
+					defParms_shadow parms_shadow;
+					SetupParmsShadow( parms_shadow );
+					DrawPassShadowPass( parms_shadow, this, params, pShaderShadow, pShaderAPI,
+						vertexCompression, pDefContext );
+				}
+				else
+					Draw( false );
+			}
+
+			bDrawComposite = ( pShaderShadow != NULL ||
+				iDeferredRenderStage == DEFERRED_RENDER_STAGE_COMPOSITION );
+
+			//bDeferredActive = bDrawToGBuffer;
+		}
+
+		if( pShaderShadow != NULL || bDrawComposite )
+			DrawLightmappedGeneric_DX9( this, params, pShaderAPI, pShaderShadow, s_info, pContextDataPtr, bDeferredActive );
+		else
+			Draw( false );
 	}
 END_SHADER
 

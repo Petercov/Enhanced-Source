@@ -12,6 +12,10 @@
 #include "cloak_blended_pass_helper.h"
 #include "flesh_interior_blended_pass_helper.h"
 
+#ifdef DEFERRED
+#include "deferred_includes.h"
+#endif // DEFERRED
+
 // NOTE: This has to be the last file included!
 #include "tier0/memdbgon.h"
 
@@ -42,7 +46,7 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		SHADER_PARAM( SELFILLUMFRESNEL, SHADER_PARAM_TYPE_BOOL, "0", "Self illum fresnel" )
 		SHADER_PARAM( SELFILLUMFRESNELMINMAXEXP, SHADER_PARAM_TYPE_VEC4, "0", "Self illum fresnel min, max, exp" )
 		SHADER_PARAM( SELFILLUMMASKSCALE, SHADER_PARAM_TYPE_FLOAT, "0", "Scale self illum effect strength" )
-		SHADER_PARAM( ALPHATESTREFERENCE, SHADER_PARAM_TYPE_FLOAT, "0.0", "" )	
+		SHADER_PARAM( ALPHATESTREFERENCE, SHADER_PARAM_TYPE_FLOAT, "0.5", "" )	
 		SHADER_PARAM( FLASHLIGHTNOLAMBERT, SHADER_PARAM_TYPE_BOOL, "0", "Flashlight pass sets N.L=1.0" )
 
 		// Debugging term for visualizing ambient data on its own
@@ -161,6 +165,11 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		SHADER_PARAM( TREESWAYSCRUMBLEFALLOFFEXP, SHADER_PARAM_TYPE_FLOAT, "1.0", "" );
 		SHADER_PARAM( TREESWAYSPEEDLERPSTART, SHADER_PARAM_TYPE_FLOAT, "3", "" );
 		SHADER_PARAM( TREESWAYSPEEDLERPEND, SHADER_PARAM_TYPE_FLOAT, "6", "" );
+
+		// Deferred
+		SHADER_PARAM( NOSHADOWPASS, SHADER_PARAM_TYPE_BOOL, "0", "Allows turning off the shadow pass of this material" )
+		SHADER_PARAM( NODEFERREDLIGHT, SHADER_PARAM_TYPE_BOOL, "0", "No deferred light input" )
+		SHADER_PARAM( MODELGLOBALNORMAL, SHADER_PARAM_TYPE_BOOL, "0", "Use global light direction as normal for all model vertices" )
 	END_SHADER_PARAMS
 
 	void SetupVars( VertexLitGeneric_DX9_Vars_t& info )
@@ -270,6 +279,9 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		info.m_nTreeSwayScrumbleFalloffExp = TREESWAYSCRUMBLEFALLOFFEXP;		
 		info.m_nTreeSwaySpeedLerpStart = TREESWAYSPEEDLERPSTART;
 		info.m_nTreeSwaySpeedLerpEnd = TREESWAYSPEEDLERPEND;
+
+		info.m_nNoDeferredLight = NODEFERREDLIGHT;
+		info.m_nModelGlobalNormal = MODELGLOBALNORMAL;
 	}
 
 	// Cloak Pass
@@ -353,8 +365,91 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		info.m_nTime = TIME;
 	}
 
+	void SetupParmsGBuffer( defParms_gBuffer &p )
+	{
+		p.bModel = true;
+
+		p.iAlbedo = BASETEXTURE;
+		p.iBumpmap = BUMPMAP;
+		p.iPhongExp = PHONGEXPONENT;
+
+		p.iAlphatestRef = ALPHATESTREFERENCE;
+		
+		p.m_nTreeSway = TREESWAY;
+		p.m_nTreeSwayHeight = TREESWAYHEIGHT;
+		p.m_nTreeSwayStartHeight = TREESWAYSTARTHEIGHT;
+		p.m_nTreeSwayRadius = TREESWAYRADIUS;
+		p.m_nTreeSwayStartRadius = TREESWAYSTARTRADIUS;
+		p.m_nTreeSwaySpeed = TREESWAYSPEED;
+		p.m_nTreeSwaySpeedHighWindMultiplier = TREESWAYSPEEDHIGHWINDMULTIPLIER;
+		p.m_nTreeSwayStrength = TREESWAYSTRENGTH;
+		p.m_nTreeSwayScrumbleSpeed = TREESWAYSCRUMBLESPEED;
+		p.m_nTreeSwayScrumbleStrength = TREESWAYSCRUMBLESTRENGTH;
+		p.m_nTreeSwayScrumbleFrequency = TREESWAYSCRUMBLEFREQUENCY;
+		p.m_nTreeSwayFalloffExp = TREESWAYFALLOFFEXP;
+		p.m_nTreeSwayScrumbleFalloffExp = TREESWAYSCRUMBLEFALLOFFEXP;		
+		p.m_nTreeSwaySpeedLerpStart = TREESWAYSPEEDLERPSTART;
+		p.m_nTreeSwaySpeedLerpEnd = TREESWAYSPEEDLERPEND;
+	}
+
+	void SetupParmsShadow( defParms_shadow &p )
+	{
+		p.bModel = true;
+		p.iAlbedo = BASETEXTURE;
+
+		p.iAlphatestRef = ALPHATESTREFERENCE;
+
+		p.m_nTreeSway = TREESWAY;
+		p.m_nTreeSwayHeight = TREESWAYHEIGHT;
+		p.m_nTreeSwayStartHeight = TREESWAYSTARTHEIGHT;
+		p.m_nTreeSwayRadius = TREESWAYRADIUS;
+		p.m_nTreeSwayStartRadius = TREESWAYSTARTRADIUS;
+		p.m_nTreeSwaySpeed = TREESWAYSPEED;
+		p.m_nTreeSwaySpeedHighWindMultiplier = TREESWAYSPEEDHIGHWINDMULTIPLIER;
+		p.m_nTreeSwayStrength = TREESWAYSTRENGTH;
+		p.m_nTreeSwayScrumbleSpeed = TREESWAYSCRUMBLESPEED;
+		p.m_nTreeSwayScrumbleStrength = TREESWAYSCRUMBLESTRENGTH;
+		p.m_nTreeSwayScrumbleFrequency = TREESWAYSCRUMBLEFREQUENCY;
+		p.m_nTreeSwayFalloffExp = TREESWAYFALLOFFEXP;
+		p.m_nTreeSwayScrumbleFalloffExp = TREESWAYSCRUMBLEFALLOFFEXP;		
+		p.m_nTreeSwaySpeedLerpStart = TREESWAYSPEEDLERPSTART;
+		p.m_nTreeSwaySpeedLerpEnd = TREESWAYSPEEDLERPEND;
+	}
+
+	bool DrawToGBuffer( IMaterialVar **params )
+	{
+#if DEFCFG_DEFERRED_SHADING == 1
+		return true;
+#else
+		const bool bIsDecal = IS_FLAG_SET( MATERIAL_VAR_DECAL );
+		const bool bTranslucent = IS_FLAG_SET( MATERIAL_VAR_TRANSLUCENT );
+
+		return !bTranslucent && !bIsDecal;
+#endif
+	}
+
 	SHADER_INIT_PARAMS()
 	{
+		const bool bDeferredActive = GetDeferredExt()->IsDeferredLightingEnabled();
+		if( bDeferredActive )
+		{
+			const bool bTranslucent = IS_FLAG_SET( MATERIAL_VAR_TRANSLUCENT );
+			const bool bAlphaTest = IS_FLAG_SET( MATERIAL_VAR_ALPHATEST );
+
+			if( bTranslucent ) 
+			{
+				CLEAR_FLAGS( MATERIAL_VAR_TRANSLUCENT );
+				SET_FLAGS( MATERIAL_VAR_ALPHATEST );
+
+				params[ALPHATESTREFERENCE]->SetFloatValue( 0.5f );
+			}
+			else if( bAlphaTest )
+			{
+				if( params[ALPHATESTREFERENCE]->GetFloatValue() == 0.0f )
+					params[ALPHATESTREFERENCE]->SetFloatValue( 0.5f );
+			}
+		}
+
 		VertexLitGeneric_DX9_Vars_t vars;
 		SetupVars( vars );
 		InitParamsVertexLitGeneric_DX9( this, params, pMaterialName, true, vars );
@@ -366,9 +461,17 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		}
 		else if ( params[CLOAKPASSENABLED]->GetIntValue() )
 		{
-			CloakBlendedPassVars_t info;
-			SetupVarsCloakBlendedPass( info );
-			InitParamsCloakBlendedPass( this, params, pMaterialName, info );
+			if( bDeferredActive )
+			{
+				// FIXME: Currently broken in deferred mode
+				params[CLOAKPASSENABLED]->SetIntValue( 0 );
+			}
+			else
+			{
+				CloakBlendedPassVars_t info;
+				SetupVarsCloakBlendedPass( info );
+				InitParamsCloakBlendedPass( this, params, pMaterialName, info );
+			}
 		}
 
 		// Emissive Scroll Pass
@@ -393,6 +496,17 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 			FleshInteriorBlendedPassVars_t info;
 			SetupVarsFleshInteriorBlendedPass( info );
 			InitParamsFleshInteriorBlendedPass( this, params, pMaterialName, info );
+		}
+
+		if( bDeferredActive )
+		{
+			defParms_gBuffer parms_gbuffer;
+			SetupParmsGBuffer( parms_gbuffer );
+			InitParmsGBuffer( parms_gbuffer, this, params );
+		
+			defParms_shadow parms_shadow;
+			SetupParmsShadow( parms_shadow );
+			InitParmsShadowPass( parms_shadow, this, params );
 		}
 	}
 
@@ -430,13 +544,74 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 			SetupVarsFleshInteriorBlendedPass( info );
 			InitFleshInteriorBlendedPass( this, params, info );
 		}
+
+		bool bDeferredActive = GetDeferredExt()->IsDeferredLightingEnabled();
+		if( bDeferredActive )
+		{
+			defParms_gBuffer parms_gbuffer;
+			SetupParmsGBuffer( parms_gbuffer );
+			InitPassGBuffer( parms_gbuffer, this, params );
+
+			defParms_shadow parms_shadow;
+			SetupParmsShadow( parms_shadow );
+			InitPassShadowPass( parms_shadow, this, params );
+		}
 	}
 
 	SHADER_DRAW
 	{
+		bool bDrawComposite = true;
+		bool bDeferredActive = GetDeferredExt()->IsDeferredLightingEnabled();
+		if( bDeferredActive )
+		{
+			if ( pShaderAPI != NULL && *pContextDataPtr == NULL )
+				*pContextDataPtr = new CVertexLitGeneric_DX9_Context();
+
+			CDeferredPerMaterialContextData *pDefContext = reinterpret_cast< CDeferredPerMaterialContextData* >(*pContextDataPtr);
+
+			const int iDeferredRenderStage = pShaderAPI ?
+				pShaderAPI->GetIntRenderingParameter( INT_RENDERPARM_DEFERRED_RENDER_STAGE )
+				: DEFERRED_RENDER_STAGE_INVALID;
+
+			const bool bDrawToGBuffer = DrawToGBuffer( params );
+
+			Assert( pShaderAPI == NULL ||
+				iDeferredRenderStage != DEFERRED_RENDER_STAGE_INVALID );
+
+			if ( bDrawToGBuffer )
+			{
+				if ( pShaderShadow != NULL ||
+					iDeferredRenderStage == DEFERRED_RENDER_STAGE_GBUFFER )
+				{
+					defParms_gBuffer parms_gbuffer;
+					SetupParmsGBuffer( parms_gbuffer );
+					DrawPassGBuffer( parms_gbuffer, this, params, pShaderShadow, pShaderAPI,
+						vertexCompression, pDefContext );
+				}
+				else
+					Draw( false );
+
+				if ( pShaderShadow != NULL ||
+					(iDeferredRenderStage == DEFERRED_RENDER_STAGE_SHADOWPASS && params[NOSHADOWPASS]->GetIntValue() == 0 ) )
+				{
+					defParms_shadow parms_shadow;
+					SetupParmsShadow( parms_shadow );
+					DrawPassShadowPass( parms_shadow, this, params, pShaderShadow, pShaderAPI,
+						vertexCompression, pDefContext );
+				}
+				else
+					Draw( false );
+			}
+
+			bDrawComposite = ( pShaderShadow != NULL ||
+				iDeferredRenderStage == DEFERRED_RENDER_STAGE_COMPOSITION );
+
+			bDeferredActive = bDrawToGBuffer;
+		}
+
 		// Skip the standard rendering if cloak pass is fully opaque
 		bool bDrawStandardPass = true;
-		if ( params[CLOAKPASSENABLED]->GetIntValue() && ( pShaderShadow == NULL ) ) // && not snapshotting
+		if ( bDrawComposite && params[CLOAKPASSENABLED]->GetIntValue() && ( pShaderShadow == NULL ) ) // && not snapshotting
 		{
 			CloakBlendedPassVars_t info;
 			SetupVarsCloakBlendedPass( info );
@@ -447,11 +622,11 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		}
 
 		// Standard rendering pass
-		if ( bDrawStandardPass )
+		if ( bDrawComposite && bDrawStandardPass )
 		{
 			VertexLitGeneric_DX9_Vars_t vars;
 			SetupVars( vars );
-			DrawVertexLitGeneric_DX9( this, params, pShaderAPI, pShaderShadow, true, vars, vertexCompression, pContextDataPtr );
+			DrawVertexLitGeneric_DX9( this, params, pShaderAPI, pShaderShadow, true, vars, vertexCompression, pContextDataPtr, bDeferredActive );
 		}
 		else
 		{
@@ -463,7 +638,7 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		if ( params[CLOAKPASSENABLED]->GetIntValue() )
 		{
 			// If ( snapshotting ) or ( we need to draw this frame )
- 			if ( ( pShaderShadow != NULL ) || ( ( params[CLOAKFACTOR]->GetFloatValue() > 0.0f ) && ( params[CLOAKFACTOR]->GetFloatValue() < 1.0f ) ) )
+ 			if ( ( pShaderShadow != NULL ) || ( bDrawComposite && ( params[CLOAKFACTOR]->GetFloatValue() > 0.0f ) && ( params[CLOAKFACTOR]->GetFloatValue() < 1.0f ) ) )
 			{
 				CloakBlendedPassVars_t info;
 				SetupVarsCloakBlendedPass( info );
@@ -480,7 +655,7 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		if ( params[EMISSIVEBLENDENABLED]->GetIntValue() )
 		{
 			// If ( snapshotting ) or ( we need to draw this frame )
-			if ( ( pShaderShadow != NULL ) || ( params[EMISSIVEBLENDSTRENGTH]->GetFloatValue() > 0.0f ) )
+			if ( ( pShaderShadow != NULL ) || ( bDrawComposite && ( params[EMISSIVEBLENDSTRENGTH]->GetFloatValue() > 0.0f ) ) )
 			{
 				EmissiveScrollBlendedPassVars_t info;
 				SetupVarsEmissiveScrollBlendedPass( info );
@@ -497,7 +672,7 @@ BEGIN_VS_SHADER( VertexLitGeneric, "Help for VertexLitGeneric" )
 		if ( params[FLESHINTERIORENABLED]->GetIntValue() )
 		{
 			// If ( snapshotting ) or ( we need to draw this frame )
-			if ( ( pShaderShadow != NULL ) || ( true ) )
+			if ( bDrawComposite || ( pShaderShadow != NULL ) )
 			{
 				FleshInteriorBlendedPassVars_t info;
 				SetupVarsFleshInteriorBlendedPass( info );

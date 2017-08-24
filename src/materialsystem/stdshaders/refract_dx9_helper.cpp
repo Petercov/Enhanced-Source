@@ -27,6 +27,7 @@ void InitParamsRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, const
 {
 	SET_FLAGS2( MATERIAL_VAR2_NEEDS_TANGENT_SPACES );
 	SET_FLAGS2( MATERIAL_VAR2_SUPPORTS_HW_SKINNING );
+	SET_FLAGS( MATERIAL_VAR_TRANSLUCENT );
 	if( !params[info.m_nEnvmapTint]->IsDefined() )
 	{
 		params[info.m_nEnvmapTint]->SetVecValue( 1.0f, 1.0f, 1.0f );
@@ -79,21 +80,7 @@ void InitParamsRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, const
 	{
 		params[info.m_nMagnifyScale]->SetIntValue( 0 );
 	}
-	if ( !params[info.m_nLocalRefract]->IsDefined() )
-	{
-		params[info.m_nLocalRefract]->SetIntValue( 0 );
-	}
-	if ( !params[info.m_nLocalRefractDepth]->IsDefined() )
-	{
-		params[info.m_nLocalRefractDepth]->SetFloatValue( 0.05f );
-	}
-
-	// Local refract doesn't need a copy of the frame buffer and doesn't require the translucent flag
-	if ( params[info.m_nLocalRefract]->GetIntValue() == 0 )
-	{
-		SET_FLAGS( MATERIAL_VAR_TRANSLUCENT );
-		SET_FLAGS2( MATERIAL_VAR2_NEEDS_POWER_OF_TWO_FRAME_BUFFER_TEXTURE );
-	}
+	SET_FLAGS2( MATERIAL_VAR2_NEEDS_POWER_OF_TWO_FRAME_BUFFER_TEXTURE );
 }
 
 void InitRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, Refract_DX9_Vars_t &info )
@@ -233,7 +220,6 @@ void DrawRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDyna
 			SET_STATIC_PIXEL_SHADER_COMBO( SECONDARY_NORMAL, bSecondaryNormal );
 			SET_STATIC_PIXEL_SHADER_COMBO( MIRRORABOUTVIEWPORTEDGES, bMirrorAboutViewportEdges );
 			SET_STATIC_PIXEL_SHADER_COMBO( MAGNIFY, bUseMagnification );
-			SET_STATIC_PIXEL_SHADER_COMBO( LOCALREFRACT, ( params[info.m_nLocalRefract]->GetIntValue() != 0 ) );
 			SET_STATIC_PIXEL_SHADER( refract_ps20b );
 		}
 		else
@@ -248,7 +234,6 @@ void DrawRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDyna
 			SET_STATIC_PIXEL_SHADER_COMBO( SECONDARY_NORMAL, bSecondaryNormal );
 			SET_STATIC_PIXEL_SHADER_COMBO( MIRRORABOUTVIEWPORTEDGES, bMirrorAboutViewportEdges );
 			SET_STATIC_PIXEL_SHADER_COMBO( MAGNIFY, bUseMagnification );
-			SET_STATIC_PIXEL_SHADER_COMBO( LOCALREFRACT, ( params[info.m_nLocalRefract]->GetIntValue() != 0 ) );
 			SET_STATIC_PIXEL_SHADER( refract_ps20 );
 		}
 		pShader->DefaultFog();
@@ -266,24 +251,10 @@ void DrawRefract_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDyna
 		if ( params[info.m_nBaseTexture]->IsTexture() )
 		{
 			pShader->BindTexture( SHADER_SAMPLER2, info.m_nBaseTexture, info.m_nFrame );
-
-			// Set refract texture dimensions
-			ITexture *pTarget = params[info.m_nBaseTexture]->GetTextureValue();
-			int nWidth = pTarget->GetActualWidth();
-			int nHeight = pTarget->GetActualHeight();
-			float c7[4] = { nHeight / nWidth, 1.0f, params[info.m_nLocalRefractDepth]->GetFloatValue(), 0.0f };
-			pShaderAPI->SetPixelShaderConstant( 7, c7, 1 );
 		}
 		else
 		{
 			pShaderAPI->BindStandardTexture( SHADER_SAMPLER2, TEXTURE_FRAME_BUFFER_FULL_TEXTURE_0 );
-
-			// Set refract texture dimensions
-			int nWidth = 0;
-			int nHeight = 0;
-			pShaderAPI->GetStandardTextureDimensions( &nWidth, &nHeight, TEXTURE_FRAME_BUFFER_FULL_TEXTURE_0 );
-			float c7[4] = { nHeight / nWidth, 1.0f, params[info.m_nLocalRefractDepth]->GetFloatValue(), 0.0f };
-			pShaderAPI->SetPixelShaderConstant( 7, c7, 1 );
 		}
 
 		pShader->BindTexture( SHADER_SAMPLER3, info.m_nNormalMap, info.m_nBumpFrame );

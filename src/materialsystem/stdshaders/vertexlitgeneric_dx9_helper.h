@@ -10,6 +10,7 @@
 
 #include <string.h>
 
+#include "deferred_includes.h"
 
 //-----------------------------------------------------------------------------
 // Forward declarations
@@ -164,13 +165,22 @@ struct VertexLitGeneric_DX9_Vars_t
 	int m_nTreeSwayScrumbleFalloffExp;
 	int m_nTreeSwaySpeedLerpStart;
 	int m_nTreeSwaySpeedLerpEnd;
+
+	int m_nNoDeferredLight;
+	int m_nModelGlobalNormal;
 };
 
 void InitParamsVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** params, const char *pMaterialName, bool bVertexLitGeneric, VertexLitGeneric_DX9_Vars_t &info );
 void InitVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** params, bool bVertexLitGeneric, VertexLitGeneric_DX9_Vars_t &info );
 void DrawVertexLitGeneric_DX9( CBaseVSShader *pShader, IMaterialVar** params, IShaderDynamicAPI *pShaderAPI, IShaderShadow* pShaderShadow,
 							   bool bVertexLitGeneric, VertexLitGeneric_DX9_Vars_t &info, VertexCompressionType_t vertexCompression,
-							   CBasePerMaterialContextData **pContextDataPtr );
+							   CBasePerMaterialContextData **pContextDataPtr, bool bDeferredActive );
+
+class CVertexLitGeneric_DX9_Context : public CDeferredPerMaterialContextData
+{
+public:
+	CCommandBufferBuilder< CFixedCommandStorageBuffer< 800 > > m_SemiStaticCmdsOut;
+};
 
 
 #endif // VERTEXLITGENERIC_DX9_HELPER_H

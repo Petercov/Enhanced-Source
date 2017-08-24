@@ -9,9 +9,14 @@
 #include "BaseVSShader.h"
 #include "vertexlitgeneric_dx9_helper.h"
 
+#ifdef DEFERRED
+#include "deferred_includes.h"
+#endif // DEFERRED
+
 // NOTE: This has to be the last file included!
 #include "tier0/memdbgon.h"
 
+#undef DEFERRED
 
 BEGIN_VS_SHADER( UnlitGeneric, "Help for UnlitGeneric" )
 	BEGIN_SHADER_PARAMS
@@ -78,6 +83,25 @@ BEGIN_VS_SHADER( UnlitGeneric, "Help for UnlitGeneric" )
 		SHADER_PARAM( DISPLACEMENTMAP, SHADER_PARAM_TYPE_TEXTURE, "shadertest/BaseTexture", "Displacement map" )
 
 		SHADER_PARAM( SHADERSRGBREAD360, SHADER_PARAM_TYPE_BOOL, "0", "Simulate srgb read in shader code")
+
+		// vertexlitgeneric tree sway animation control
+		SHADER_PARAM( TREESWAY, SHADER_PARAM_TYPE_INTEGER, "0", "" );
+		SHADER_PARAM( TREESWAYHEIGHT, SHADER_PARAM_TYPE_FLOAT, "1000", "" );
+		SHADER_PARAM( TREESWAYSTARTHEIGHT, SHADER_PARAM_TYPE_FLOAT, "0.2", "" );
+		SHADER_PARAM( TREESWAYRADIUS, SHADER_PARAM_TYPE_FLOAT, "300", "" );
+		SHADER_PARAM( TREESWAYSTARTRADIUS, SHADER_PARAM_TYPE_FLOAT, "0.1", "" );
+		SHADER_PARAM( TREESWAYSPEED, SHADER_PARAM_TYPE_FLOAT, "1", "" );
+		SHADER_PARAM( TREESWAYSPEEDHIGHWINDMULTIPLIER, SHADER_PARAM_TYPE_FLOAT, "2", "" );
+		SHADER_PARAM( TREESWAYSTRENGTH, SHADER_PARAM_TYPE_FLOAT, "10", "" );
+		SHADER_PARAM( TREESWAYSCRUMBLESPEED, SHADER_PARAM_TYPE_FLOAT, "0.1", "" );
+		SHADER_PARAM( TREESWAYSCRUMBLESTRENGTH, SHADER_PARAM_TYPE_FLOAT, "0.1", "" );
+		SHADER_PARAM( TREESWAYSCRUMBLEFREQUENCY, SHADER_PARAM_TYPE_FLOAT, "0.1", "" );
+		SHADER_PARAM( TREESWAYFALLOFFEXP, SHADER_PARAM_TYPE_FLOAT, "1.5", "" );
+		SHADER_PARAM( TREESWAYSCRUMBLEFALLOFFEXP, SHADER_PARAM_TYPE_FLOAT, "1.0", "" );
+		SHADER_PARAM( TREESWAYSPEEDLERPSTART, SHADER_PARAM_TYPE_FLOAT, "3", "" );
+		SHADER_PARAM( TREESWAYSPEEDLERPEND, SHADER_PARAM_TYPE_FLOAT, "6", "" );
+
+		SHADER_PARAM( DEFERRED, SHADER_PARAM_TYPE_BOOL, "0", "")
 	END_SHADER_PARAMS
 
 	void SetupVars( VertexLitGeneric_DX9_Vars_t& info )
@@ -161,6 +185,60 @@ BEGIN_VS_SHADER( UnlitGeneric, "Help for UnlitGeneric" )
 
 		info.m_nShaderSrgbRead360 = SHADERSRGBREAD360;
 		info.m_nDisplacementMap = DISPLACEMENTMAP;
+
+		info.m_nTreeSway = TREESWAY;
+		info.m_nTreeSwayHeight = TREESWAYHEIGHT;
+		info.m_nTreeSwayStartHeight = TREESWAYSTARTHEIGHT;
+		info.m_nTreeSwayRadius = TREESWAYRADIUS;
+		info.m_nTreeSwayStartRadius = TREESWAYSTARTRADIUS;
+		info.m_nTreeSwaySpeed = TREESWAYSPEED;
+		info.m_nTreeSwaySpeedHighWindMultiplier = TREESWAYSPEEDHIGHWINDMULTIPLIER;
+		info.m_nTreeSwayStrength = TREESWAYSTRENGTH;
+		info.m_nTreeSwayScrumbleSpeed = TREESWAYSCRUMBLESPEED;
+		info.m_nTreeSwayScrumbleStrength = TREESWAYSCRUMBLESTRENGTH;
+		info.m_nTreeSwayScrumbleFrequency = TREESWAYSCRUMBLEFREQUENCY;
+		info.m_nTreeSwayFalloffExp = TREESWAYFALLOFFEXP;
+		info.m_nTreeSwayScrumbleFalloffExp = TREESWAYSCRUMBLEFALLOFFEXP;		
+		info.m_nTreeSwaySpeedLerpStart = TREESWAYSPEEDLERPSTART;
+		info.m_nTreeSwaySpeedLerpEnd = TREESWAYSPEEDLERPEND;
+	}
+
+	void SetupParmsGBuffer( defParms_gBuffer &p )
+	{
+		p.bModel = true;
+
+		p.iAlbedo = BASETEXTURE;
+		p.iPhongExp = PHONGEXPONENT;
+
+		p.iAlphatestRef = ALPHATESTREFERENCE;
+		
+		p.m_nTreeSway = TREESWAY;
+		p.m_nTreeSwayHeight = TREESWAYHEIGHT;
+		p.m_nTreeSwayStartHeight = TREESWAYSTARTHEIGHT;
+		p.m_nTreeSwayRadius = TREESWAYRADIUS;
+		p.m_nTreeSwayStartRadius = TREESWAYSTARTRADIUS;
+		p.m_nTreeSwaySpeed = TREESWAYSPEED;
+		p.m_nTreeSwaySpeedHighWindMultiplier = TREESWAYSPEEDHIGHWINDMULTIPLIER;
+		p.m_nTreeSwayStrength = TREESWAYSTRENGTH;
+		p.m_nTreeSwayScrumbleSpeed = TREESWAYSCRUMBLESPEED;
+		p.m_nTreeSwayScrumbleStrength = TREESWAYSCRUMBLESTRENGTH;
+		p.m_nTreeSwayScrumbleFrequency = TREESWAYSCRUMBLEFREQUENCY;
+		p.m_nTreeSwayFalloffExp = TREESWAYFALLOFFEXP;
+		p.m_nTreeSwayScrumbleFalloffExp = TREESWAYSCRUMBLEFALLOFFEXP;		
+		p.m_nTreeSwaySpeedLerpStart = TREESWAYSPEEDLERPSTART;
+		p.m_nTreeSwaySpeedLerpEnd = TREESWAYSPEEDLERPEND;
+	}
+
+	void SetupParmsShadow( defParms_shadow &p )
+	{
+		p.bModel = true;
+		p.iAlbedo = BASETEXTURE;
+		//p.iAlbedo2 = BASETEXTURE2;
+		//p.iAlbedo3 = BASETEXTURE3;
+		//p.iAlbedo4 = BASETEXTURE4;
+
+		p.iAlphatestRef = ALPHATESTREFERENCE;
+		//p.iMultiblend = MULTIBLEND;
 	}
 
 	SHADER_INIT_PARAMS()
@@ -168,6 +246,14 @@ BEGIN_VS_SHADER( UnlitGeneric, "Help for UnlitGeneric" )
 		VertexLitGeneric_DX9_Vars_t vars;
 		SetupVars( vars );
 		InitParamsVertexLitGeneric_DX9( this, params, pMaterialName, false, vars );
+
+		/*const bool bDeferredActive = GetDeferredExt()->IsDeferredLightingEnabled();
+		if( bDeferredActive && params[DEFERRED]->GetIntValue() )
+		{
+			defParms_gBuffer parms_gbuffer;
+			SetupParmsGBuffer( parms_gbuffer );
+			InitParmsGBuffer( parms_gbuffer, this, params );
+		}*/
 	}
 
 	SHADER_FALLBACK
@@ -180,6 +266,14 @@ BEGIN_VS_SHADER( UnlitGeneric, "Help for UnlitGeneric" )
 		VertexLitGeneric_DX9_Vars_t vars;
 		SetupVars( vars );
 		InitVertexLitGeneric_DX9( this, params, false, vars );
+
+		/*const bool bDeferredActive = GetDeferredExt()->IsDeferredLightingEnabled();
+		if( bDeferredActive && params[DEFERRED]->GetIntValue() )
+		{
+			defParms_gBuffer parms_gbuffer;
+			SetupParmsGBuffer( parms_gbuffer );
+			InitPassGBuffer( parms_gbuffer, this, params );
+		}*/
 	}
 
 	SHADER_DRAW
@@ -195,7 +289,37 @@ BEGIN_VS_SHADER( UnlitGeneric, "Help for UnlitGeneric" )
 		}
 		else
 		{
-			DrawVertexLitGeneric_DX9( this, params, pShaderAPI, pShaderShadow, false, vars, vertexCompression, pContextDataPtr );
+			bool bDeferredActive = GetDeferredExt()->IsDeferredLightingEnabled() && params[DEFERRED]->GetIntValue() > 0;
+			if( bDeferredActive )
+			{
+				const int iDeferredRenderStage = pShaderAPI ?
+					pShaderAPI->GetIntRenderingParameter( INT_RENDERPARM_DEFERRED_RENDER_STAGE )
+					: DEFERRED_RENDER_STAGE_INVALID;
+
+				/*if ( pShaderAPI != NULL && *pContextDataPtr == NULL )
+					*pContextDataPtr = new CVertexLitGeneric_DX9_Context();
+
+				CDeferredPerMaterialContextData *pDefContext = reinterpret_cast< CDeferredPerMaterialContextData* >(*pContextDataPtr);
+
+				if ( pShaderShadow != NULL ||
+					iDeferredRenderStage == DEFERRED_RENDER_STAGE_GBUFFER )
+				{
+					defParms_gBuffer parms_gbuffer;
+					SetupParmsGBuffer( parms_gbuffer );
+					DrawPassGBuffer( parms_gbuffer, this, params, pShaderShadow, pShaderAPI,
+						vertexCompression, pDefContext );
+				}
+				else
+					Draw( false );*/
+
+				if( pShaderShadow == NULL && iDeferredRenderStage != DEFERRED_RENDER_STAGE_COMPOSITION )
+				{
+					Draw( false );
+					return;
+				}
+			}
+
+			DrawVertexLitGeneric_DX9( this, params, pShaderAPI, pShaderShadow, false, vars, vertexCompression, pContextDataPtr, bDeferredActive );
 		}
 	}
 END_SHADER

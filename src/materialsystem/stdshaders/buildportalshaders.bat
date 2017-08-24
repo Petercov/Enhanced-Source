@@ -21,12 +21,12 @@ rem == Note that this path needs does not support long file/directory names ==
 rem == So instead of a path such as "C:\Program Files\Steam\steamapps\mymod" ==
 rem == you need to find the 8.3 abbreviation for the directory name using 'dir /x' ==
 rem == and set the directory to something like C:\PROGRA~2\Steam\steamapps\sourcemods\mymod ==
-set GAMEDIR=C:\Users\Joshua\DOCUME~1\GitHub\SOURCE~1\SOURCE~1\portal
+set GAMEDIR=%CD%\..\..\..\game\episodic
 
 rem == Set the relative path to steamapps\common\Alien Swarm\bin ==
 rem == As above, this path does not support long directory names or spaces ==
 rem == e.g. ..\..\..\..\..\PROGRA~2\Steam\steamapps\common\ALIENS~1\bin ==
-set SDKBINDIR=..\..\..\SOURCE~1\bin
+set SDKBINDIR=..\..\..\game\bin
 
 rem ==  Set the Path to your mods root source code ==
 rem this should already be correct, accepts relative paths only!
@@ -57,7 +57,11 @@ set tt_all_chkpt=%tt_start%
 set BUILD_SHADER=call buildshaders.bat
 set ARG_EXTRA=
 
-%BUILD_SHADER% portalshader_dx9_20b		-game %GAMEDIR% -source %SOURCEDIR%
+REM %BUILD_SHADER% portalshader_dx9_20b		-game %GAMEDIR% -source %SOURCEDIR%
+REM %BUILD_SHADER% stdshader_dx9_20b_new		-game %GAMEDIR% -source %SOURCEDIR%	-dx9_30
+REM %BUILD_SHADER% stdshader_dx9_30_SDK					-game %GAMEDIR% -source %SOURCEDIR%	-dx9_30	-force30
+REM %BUILD_SHADER% stdshader_dx9_30_deferred			-game %GAMEDIR% -source %SOURCEDIR%	-dx9_30	-force30
+%BUILD_SHADER% stdshader_dx9_30_stock_deferred		-game %GAMEDIR% -source %SOURCEDIR%	-dx9_30	-force30 %1 %2
 
 
 rem echo.
@@ -69,3 +73,4 @@ if not "%dynamic_shaders%" == "1" (
 
 rem %TTEXE% -diff %tt_all_start% -cur
 rem echo.
+REM sleep

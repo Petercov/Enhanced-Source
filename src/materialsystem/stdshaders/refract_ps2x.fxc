@@ -10,7 +10,6 @@
 // STATIC: "SECONDARY_NORMAL"				"0..1"
 // STATIC: "MIRRORABOUTVIEWPORTEDGES"		"0..1"	[XBOX]
 // STATIC: "MIRRORABOUTVIEWPORTEDGES"		"0..0"	[PC]
-// STATIC: "LOCALREFRACT"					"0..1"
 
 #include "common_fog_ps_fxc.h"
 // DYNAMIC: "WRITE_DEPTH_TO_DESTALPHA"		"0..1"	[ps20b] [PC]
@@ -51,10 +50,6 @@ const float4  g_c5							: register( c5 );
 const float4 g_c6							: register( c6 );
 #define g_vMagnifyCenter g_c6.xy
 #define g_flInverseMagnifyScale g_c6.z
-
-const float3 g_c7							: register( c7 );
-#define g_vRefractTextureAspectFixup ( g_c7.xy )
-#define g_flRefractDepth ( g_c7.z )
 
 const float4 g_FogParams					: register( PSREG_FOG_PARAMS );
 const float4 g_EyePos_SpecExponent			: register( PSREG_EYEPOS_SPEC_EXPONENT );
@@ -225,37 +220,6 @@ float4 main( PS_INPUT i ) : COLOR
 			colorWarp *= refractTintColor;
 			result = lerp( colorNoWarp, colorWarp, blend );
 		#endif
-	#endif
-
-	#if ( LOCALREFRACT )
-		float2 vTexCoord = i.vBumpTexCoord.xy;
-
-		// The interpolaged tangent space vert to eye vector isn't good enough, so compute a higher quality vector here
-		float3 vVertexToEyeDirWs = g_EyePos_SpecExponent.xyz - i.worldPos_projPosZ.xyz;
-		float3 vVertexToEyeDirTs = Vec3WorldToTangentNormalized( vVertexToEyeDirWs.xyz, i.vWorldNormal.xyz, i.vWorldTangent.xyz, i.vWorldBinormal.xyz );
-
-		//float3 vRefractTs = refract( -vVertexToEyeDirTs.xyz, vNormal.xyz, 0.66 );
-		float3 vRefractTs = vVertexToEyeDirTs.xyz; // Just use the vert to eye vector as the refract vector
-
-		float flRDotN = -vRefractTs.z; // This is R.GeometricNormal, so just use tangent z
-
-		float2 vRefractedUv = vRefractTs.xy / flRDotN;
-		vRefractedUv.xy += vNormal.xy;
-		vRefractedUv.xy += ( 1.0f - vNormal.z ) * vRefractTs.xy / flRDotN;
-		vRefractedUv.xy *= g_vRefractTextureAspectFixup.xy * g_flRefractDepth;
-
-		// Original uv's
-		vRefractedUv.xy += vTexCoord.xy;
-
-		float4 vRefract = tex2Dsrgb( RefractSampler, saturate( vRefractedUv.xy ) );
-		float4 vRefract2 = tex2Dsrgb( RefractSampler, saturate( vTexCoord.xy + vNormal.xy*0.1 ) );
-		vRefract.rgb = lerp( vRefract.rgb, vRefract2.aaa, 0.025 );
-
-		float flFresnel = pow( vNormal.z, 3.0f );
-		result.rgb = vRefract.rgb * flFresnel * refractTintColor.rgb;
-
-		float3 unblurredColor = tex2Dsrgb( RefractSampler, vTexCoord.xy ).rgb;
-		result.rgb = lerp( unblurredColor.rgb, result.rgb, blend );
 	#endif
 
 	#if CUBEMAP

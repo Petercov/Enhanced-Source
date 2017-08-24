@@ -3,11 +3,7 @@
 
 #include "cbase.h"
 
-#ifdef CLIENT_DLL
-#include "../../materialsystem/deferredshaders/IDeferredExt.h"
-#else
 struct lightData_Global_t;
-#endif
 
 class CDeferredLightGlobal : public CBaseEntity
 {

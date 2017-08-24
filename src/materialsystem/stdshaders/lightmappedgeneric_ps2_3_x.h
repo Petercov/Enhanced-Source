@@ -28,6 +28,8 @@
 #define USE_32BIT_LIGHTMAPS_ON_360 //uncomment to use 32bit lightmaps, be sure to keep this in sync with the same #define in materialsystem/cmatlightmaps.cpp
 
 // NOTE: This has to be before inclusion of common_lightmappedgeneric_fxc.h to get the vertex format right!
+// NOTE2: DETAILTEXTURE is now also a static, so we can skip all the needless combos with DETAIL_BLEND_MODE!
+#undef DETAILTEXTURE
 #if ( DETAIL_BLEND_MODE == 12 )
 #define DETAILTEXTURE 0
 #else
@@ -206,7 +208,7 @@ float4 main( PS_INPUT i ) : COLOR
 
 	float3 coords = baseTexCoords;
 
-	if ( PARALLAX_MAPPING )
+#if PARALLAX_MAPPING
 	{		
 		float3 tangentspace_eye_vector = mul( worldVertToEyeVector, transpose( tangenttranspose ) );
 		
@@ -218,6 +220,7 @@ float4 main( PS_INPUT i ) : COLOR
 		coords.x += dist * vOffset.x;
 		coords.y += dist * vOffset.y;
 	}
+#endif
 
 	float2 detailTexCoord = 0.0f;
 	float2 bumpmapTexCoord = 0.0f;
@@ -235,11 +238,12 @@ float4 main( PS_INPUT i ) : COLOR
 	bumpmap2TexCoord = i.ENVMAPMASKCOORDS;
 #endif
 
-	if ( PARALLAX_MAPPING )
+#if PARALLAX_MAPPING
 	{
 		detailTexCoord = 0;
 		bumpmapTexCoord = coords;
 	}
+#endif
 
 	GetBaseTextureAndNormal( BaseTextureSampler, BaseTextureSampler2, BumpmapSampler,
 							 bBaseTexture2, bBumpmap || bNormalMapAlphaEnvmapMask, 
@@ -648,4 +652,3 @@ float4 main( PS_INPUT i ) : COLOR
 #endif
 
 }
- 
