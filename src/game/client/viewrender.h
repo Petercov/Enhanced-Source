@@ -389,7 +389,11 @@ protected:
 
 	// Drawing primitives
 	bool			ShouldDrawViewModel( bool drawViewmodel );
-	void			DrawViewModels( const CViewSetup &view, bool drawViewmodel, bool bGbuffer );
+	void			DrawViewModels( const CViewSetup &view, bool drawViewmodel
+#ifdef DEFERRED_HYBRID
+	, bool bGbuffer
+#endif // DEFERRED_HYBRID
+	);
 
 	void			PerformScreenSpaceEffects( int x, int y, int w, int h );
 
@@ -515,7 +519,9 @@ protected:
 	CON_COMMAND_MEMBER_F( CViewRender, "screenfademinsize", OnScreenFadeMinSize, "Modify global screen fade min size in pixels", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
 	CON_COMMAND_MEMBER_F( CViewRender, "screenfademaxsize", OnScreenFadeMaxSize, "Modify global screen fade max size in pixels", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
 
+#ifdef DEFERRED_HYBRID
 	friend class CRendering3dView;
+#endif // DEFERRED_HYBRID
 };
 
 
@@ -583,7 +589,7 @@ protected:
 
 #ifdef DEFERRED_HYBRID
 	static void PushComposite();
-	static void		PopComposite();
+	static void	PopComposite();
 
 	static void PushGBuffer( bool bInitial, float zScale = 1.0f, bool bClearDepth = true );
 	static void PopGBuffer();
@@ -605,7 +611,9 @@ protected:
 	ClientWorldListInfo_t *m_pWorldListInfo;
 	ViewCustomVisibility_t *m_pCustomVisibility;
 
+#ifdef DEFERRED_HYBRID
 	friend void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel, bool bGBuffer );
+#endif // DEFERRED_HYBRID
 };
 
 #endif // VIEWRENDER_H

@@ -1294,7 +1294,11 @@ void CViewRender::DrawRenderablesInList( CViewModelRenderablesList::RenderGroups
 // Purpose: Actually draw the view model
 // Input  : drawViewModel - 
 //-----------------------------------------------------------------------------
-void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel, bool bGBuffer )
+void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel
+#ifdef DEFERRED_HYBRID
+, bool bGBuffer
+#endif // DEFERRED_HYBRID
+)
 {
 	VPROF( "CViewRender::DrawViewModel" );
 
@@ -3406,7 +3410,11 @@ void CViewRender::RenderView( const CViewSetup &view, const CViewSetup &hudViewS
 		#endif
 
 		// Now actually draw the viewmodel
-		DrawViewModels( worldView, whatToDraw & RENDERVIEW_DRAWVIEWMODEL, false );
+		DrawViewModels( worldView, whatToDraw & RENDERVIEW_DRAWVIEWMODEL
+#ifdef DEFERRED_HYBRID
+		, false
+#endif // DEFERRED_HYBRID
+		);
 
 #ifdef SHADEREDITOR
 		g_ShaderEditorSystem->UpdateSkymask( bDrew3dSkybox, view.x, view.y, view.width, view.height );
