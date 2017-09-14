@@ -1294,7 +1294,11 @@ void CViewRender::DrawRenderablesInList( CViewModelRenderablesList::RenderGroups
 // Purpose: Actually draw the view model
 // Input  : drawViewModel - 
 //-----------------------------------------------------------------------------
-void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel, bool bGBuffer )
+void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel
+#ifdef DEFERRED_HYBRID
+, bool bGBuffer
+#endif // DEFERRED_HYBRID
+)
 {
 	VPROF( "CViewRender::DrawViewModel" );
 
@@ -1339,6 +1343,7 @@ void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel, bo
 	const bool bUseDepthHack = true;
 #endif
 
+#ifdef DEFERRED_HYBRID
 	if ( bGBuffer )
 	{
 		const float flViewmodelScale = view.zFarViewmodel / view.zFar;
@@ -1348,6 +1353,7 @@ void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel, bo
 	{
 		CRendering3dView::PushComposite();
 	}
+#endif // DEFERRED_HYBRID
 
 	// FIXME: Add code to read the current depth range
 	float depthmin = 0.0f;
@@ -1392,7 +1398,9 @@ void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel, bo
 	bool bUpdatedRefractForOpaque = UpdateRefractIfNeededByList( opaqueList );
 	DrawRenderablesInList( opaqueList );
 	
+#ifdef DEFERRED_HYBRID
 	if ( !bGBuffer )
+#endif // DEFERRED_HYBRID
 	{
 		// Update refract for translucent models (if we didn't already update it above) & draw
 		if ( !bUpdatedRefractForOpaque ) // Only do this once for better perf
@@ -1406,8 +1414,10 @@ void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel, bo
 	if( bUseDepthHack )
 		pRenderContext->DepthRange( depthmin, depthmax );
 
+#ifdef DEFERRED_HYBRID
 	if ( bGBuffer )
 		CRendering3dView::PopGBuffer();
+#endif // DEFERRED_HYBRID
 
 	render->PopView( GetFrustum() );
 
@@ -3406,7 +3416,11 @@ void CViewRender::RenderView( const CViewSetup &view, const CViewSetup &hudViewS
 		#endif
 
 		// Now actually draw the viewmodel
-		DrawViewModels( worldView, whatToDraw & RENDERVIEW_DRAWVIEWMODEL, false );
+		DrawViewModels( worldView, whatToDraw & RENDERVIEW_DRAWVIEWMODEL
+#ifdef DEFERRED_HYBRID
+		, false
+#endif // DEFERRED_HYBRID
+		);
 
 #ifdef SHADEREDITOR
 		g_ShaderEditorSystem->UpdateSkymask( bDrew3dSkybox, view.x, view.y, view.width, view.height );
