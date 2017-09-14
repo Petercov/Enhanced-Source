@@ -1,8 +1,6 @@
 #ifndef CDEF_LIGHT_GLOBAL_H
 #define CDEF_LIGHT_GLOBAL_H
 
-#include "cbase.h"
-
 struct lightData_Global_t;
 
 class CDeferredLightGlobal : public CBaseEntity

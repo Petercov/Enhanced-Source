@@ -6,11 +6,11 @@
 #endif // _WIN32
 
 #define pFnClCallback( x ) void(* x )( float *pfl4 )
-#define pFnClCallback_Declare( x ) void x( float *pfl4 )
+#define pFnClCallback_Declare( x ) static void x( float *pfl4 )
 
 #define pFnVrCallback( x ) void(* x )( bool * const pbOptions, int * const piOptions,\
 										float * const pflOptions, char ** const pszOptions )
-#define pFnVrCallback_Declare( x ) void x( bool * const pbOptions, int * const piOptions,\
+#define pFnVrCallback_Declare( x ) static void x( bool * const pbOptions, int * const piOptions,\
 										float * const pflOptions, char ** const pszOptions )
 
 #define DEFINE_SHADEREDITOR_MATERIALVAR( effectName, nodeName, materialVarName, localVarName ) \

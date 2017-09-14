@@ -1,7 +1,6 @@
 #ifndef CDEFERRED_MANAGER_CLIENT_H
 #define CDEFERRED_MANAGER_CLIENT_H
 
-#include "cbase.h"
 #include "materialsystem/MaterialSystemUtil.h"
 
 enum DEF_MATERIALS

@@ -245,7 +245,7 @@ void CDeferredLight::ApplyDataToLight()
 #endif
 
 #if DEFCFG_CONFIGURABLE_VOLUMETRIC_LOD
-	m_pLight->iVolumeSamples = GetVolumeSamples();
+	m_pLight->iVolumeSamples = Clamp( GetVolumeSamples(), 0, 100 );
 #endif
 }
 

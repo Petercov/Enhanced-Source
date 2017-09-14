@@ -51,6 +51,8 @@
 #include "vgui/ISurface.h"
 #ifdef DEFERRED
 #include "deferred/deferred_shared_common.h"
+#endif
+#ifdef DEFERRED_HYBRID
 #include "tier1/callqueue.h"
 #endif
 
@@ -440,9 +442,9 @@ public:
 	  }
 
 	bool			Setup( const CViewSetup &view, int *pClearFlags, SkyboxVisibility_t *pSkyboxVisible
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 						   , bool bGBuffer = false
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 	);
 	void			Draw();
 
@@ -463,9 +465,9 @@ protected:
 
 	sky3dparams_t *m_pSky3dParams;
 
-#if DEFERRED
+#if DEFERRED_HYBRID
 	bool		m_bGBufferPass;
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 };
 
 //-----------------------------------------------------------------------------
@@ -754,7 +756,7 @@ public:
 };
 
 // Deferred views
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 class CBaseWorldBlendViewDeferred : public CBaseWorldView
 {
 	DECLARE_CLASS( CBaseWorldBlendViewDeferred, CBaseWorldView );
@@ -902,7 +904,7 @@ private:
 	def_light_t *m_pLight;
 	int m_iIndex;
 };
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 
 //-----------------------------------------------------------------------------
@@ -1191,10 +1193,10 @@ CViewRender::CViewRender()
 	m_pCurrentlyDrawingEntity = NULL;
 	m_bAllowViewAccess = false;
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	m_pMesh_RadiosityScreenGrid[0] = NULL;
 	m_pMesh_RadiosityScreenGrid[1] = NULL;
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 }
 
 
@@ -1633,7 +1635,7 @@ void CViewRender::ViewDrawScene( bool bDrew3dSkybox, SkyboxVisibility_t nSkyboxV
 
 	g_pClientShadowMgr->PreRender();
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	const bool bDeferredActive = GetDeferredManager()->IsDeferredRenderingEnabled();
 
 	if( bDeferredActive )
@@ -1643,10 +1645,10 @@ void CViewRender::ViewDrawScene( bool bDrew3dSkybox, SkyboxVisibility_t nSkyboxV
 		PerformLighting( view );
 
 #ifdef SHADEREDITOR
-		g_ShaderEditorSystem->UpdateSkymask( bDrew3dSkybox );
+		g_ShaderEditorSystem->UpdateSkymask( bDrew3dSkybox, view.x, view.y, view.width, view.height );
 #endif // SHADEREDITOR
 	}
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	// Shadowed flashlights supported on ps_2_b and up...
 	if ( ( viewID == VIEW_MAIN ) && ( !view.m_bDrawWorldNormal ) )
@@ -1694,12 +1696,12 @@ void CViewRender::ViewDrawScene( bool bDrew3dSkybox, SkyboxVisibility_t nSkyboxV
 	g_ShaderEditorSystem->CustomViewRender( &g_CurrentViewID, fogVolumeInfo, info );
 #endif // SHADEREDITOR
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	if( bDeferredActive )
 	{
 		GetLightingManager()->RenderVolumetrics( view );
 	}
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	// Disable fog for the rest of the stuff
 	DisableFog();
@@ -2347,7 +2349,7 @@ void CViewRender::GetLetterBoxRectangles( int nSlot, const CViewSetup &view, CUt
 	}
 }
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 static lightData_Global_t GetActiveGlobalLightState()
 {
 	lightData_Global_t data;
@@ -2961,7 +2963,7 @@ void CViewRender::DrawLightShadowView( const CViewSetup &view, int iDesiredShado
 		break;
 	}
 }
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 //-----------------------------------------------------------------------------
 // Sets up, cleans up the main 3D view
@@ -3143,16 +3145,16 @@ void ParticleUsageDemo( void )
 // This renders the entire 3D view.
 void CViewRender::RenderView( const CViewSetup &view, const CViewSetup &hudViewSetup, int nClearFlags, int whatToDraw )
 {
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	const bool bDeferredActive = GetDeferredManager()->IsDeferredRenderingEnabled();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	m_UnderWaterOverlayMaterial.Shutdown();					// underwater view will set
 
 	ASSERT_LOCAL_PLAYER_RESOLVABLE();
 	int slot = GET_ACTIVE_SPLITSCREEN_SLOT();
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	CViewSetup worldView = view;
 
 	if( bDeferredActive )
@@ -3168,7 +3170,7 @@ void CViewRender::RenderView( const CViewSetup &view, const CViewSetup &hudViewS
 #else
 	const CViewSetup &worldView = view;
 	m_CurrentView = view;
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	C_BaseAnimating::AutoAllowBoneAccess boneaccess( true, true );
 	VPROF( "CViewRender::RenderView" );
@@ -3252,13 +3254,13 @@ void CViewRender::RenderView( const CViewSetup &view, const CViewSetup &hudViewS
 
 		g_pClientShadowMgr->UpdateSplitscreenLocalPlayerShadowSkip();
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 		if( bDeferredActive )
 		{
 			ProcessDeferredGlobals( worldView );
 			GetLightingManager()->LightSetup( worldView );
 		}
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 		bool bDrew3dSkybox = false;
 		SkyboxVisibility_t nSkyboxVisible = SKYBOX_NOT_VISIBLE;
@@ -3325,7 +3327,7 @@ void CViewRender::RenderView( const CViewSetup &view, const CViewSetup &hudViewS
 		// We can still use the 'current view' stuff set up in ViewDrawScene
 		AllowCurrentViewAccess( true );
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 		if( bDeferredActive )
 		{
 			// must happen before teardown
@@ -3334,7 +3336,7 @@ void CViewRender::RenderView( const CViewSetup &view, const CViewSetup &hudViewS
 
 			GetLightingManager()->LightTearDown();
 		}
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 		PostViewDrawScene( worldView );
 
 		engine->DrawPortals();
@@ -4742,8 +4744,8 @@ void CRendering3dView::BuildRenderableRenderLists( int viewID )
 	MDLCACHE_CRITICAL_SECTION();
 
 	const bool bUpdateLightmaps = viewID != VIEW_SHADOW_DEPTH_TEXTURE
-#ifdef DEFERRED
-		//&& !GetDeferredManager()->IsDeferredRenderingEnabled()
+#if !defined(DEFERRED_HYBRID) && defined(DEFERRED)
+		&& !GetDeferredManager()->IsDeferredRenderingEnabled()
 #endif
 		;
 
@@ -4829,7 +4831,7 @@ void CRendering3dView::End360ZPass()
 #endif
 }
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 void CRendering3dView::PushComposite()
 {
 	CMatRenderContextPtr pRenderContext( materials );
@@ -4903,7 +4905,7 @@ void CRendering3dView::PopGBuffer()
 
 	pRenderContext->PopRenderTargetAndViewport();
 }
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 CMaterialReference g_material_WriteZ; //init'ed on by CViewRender::Init()
 
@@ -6165,7 +6167,7 @@ sky3dparams_t *CSkyboxView::PreRender3dSkyboxWorld( SkyboxVisibility_t nSkyboxVi
 //-----------------------------------------------------------------------------
 void CSkyboxView::DrawInternal( view_id_t iSkyBoxViewID, bool bInvokePreAndPostRender, ITexture *pRenderTarget )
 {
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	if ( m_bGBufferPass )
 	{
 		m_DrawFlags |= DF_SKIP_WORLD_DECALS_AND_OVERLAYS;
@@ -6174,7 +6176,7 @@ void CSkyboxView::DrawInternal( view_id_t iSkyBoxViewID, bool bInvokePreAndPostR
 		m_DrawFlags |= DF_DRAWSKYBOX;
 #endif
 	}
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	unsigned char **areabits = render->GetAreaBits();
 	unsigned char *savebits;
@@ -6214,9 +6216,9 @@ void CSkyboxView::DrawInternal( view_id_t iSkyBoxViewID, bool bInvokePreAndPostR
 			m_matCustomViewMatrix.m_flMatVal[2][3] = (m_matCustomViewMatrix.m_flMatVal[2][3] * scale) - vTransformedSkyOrigin.z;
 		}
 	}
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	if ( !m_bGBufferPass )
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 		Enable3dSkyboxFog();
 
 	// BUGBUG: Fix this!!!  We shouldn't need to call setup vis for the sky if we're connecting
@@ -6226,12 +6228,12 @@ void CSkyboxView::DrawInternal( view_id_t iSkyBoxViewID, bool bInvokePreAndPostR
 	render->ViewSetupVis( false, 1, &m_pSky3dParams->origin.Get() );
 	render->Push3DView( (*this), m_ClearFlags, pRenderTarget, GetFrustum() );
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	if ( m_bGBufferPass )
 		PushGBuffer( true, skyScale );
 	else
 		PushComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	// Store off view origin and angles
 	SetupCurrentView( origin, angles, iSkyBoxViewID );
@@ -6251,9 +6253,9 @@ void CSkyboxView::DrawInternal( view_id_t iSkyBoxViewID, bool bInvokePreAndPostR
 	render->BeginUpdateLightmaps();
 	BuildWorldRenderLists( true, -1, true );
 	BuildRenderableRenderLists(
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 		m_bGBufferPass ? VIEW_SHADOW_DEPTH_TEXTURE :
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 								iSkyBoxViewID );
 	render->EndUpdateLightmaps();
 
@@ -6268,9 +6270,9 @@ void CSkyboxView::DrawInternal( view_id_t iSkyBoxViewID, bool bInvokePreAndPostR
 	// Iterate over all leaves and render objects in those leaves
 	DrawOpaqueRenderables( false );
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	if ( !m_bGBufferPass )
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 	{
 		// Iterate over all leaves and render objects in those leaves
 		DrawTranslucentRenderables( true, false );
@@ -6293,12 +6295,12 @@ void CSkyboxView::DrawInternal( view_id_t iSkyBoxViewID, bool bInvokePreAndPostR
 		FinishCurrentView();
 	}
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	if ( m_bGBufferPass )
 		PopGBuffer();
 	else
 		PopComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	// FIXME: Workaround to 3d skybox not depth-of-fielding properly. The real fix is for the 3d skybox dest alpha depth values
 	// to be biased. Currently all I do is clear alpha to 1 after the 3D skybox path. This avoids the skybox being unblurred.
@@ -6335,14 +6337,14 @@ void CSkyboxView::DrawInternal( view_id_t iSkyBoxViewID, bool bInvokePreAndPostR
 // 
 //-----------------------------------------------------------------------------
 bool CSkyboxView::Setup( const CViewSetup &view, int *pClearFlags, SkyboxVisibility_t *pSkyboxVisible
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 						 , bool bGBuffer
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 )
 {
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	m_bGBufferPass = bGBuffer;
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	BaseClass::Setup( view );
 
@@ -6363,9 +6365,9 @@ bool CSkyboxView::Setup( const CViewSetup &view, int *pClearFlags, SkyboxVisibil
 
 	m_DrawFlags = DF_RENDER_UNDERWATER | DF_RENDER_ABOVEWATER | DF_RENDER_WATER;
 	if(
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 		!m_bGBufferPass &&
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 		r_skybox.GetBool() )
 	{
 		m_DrawFlags |= DF_DRAWSKYBOX;
@@ -6489,6 +6491,12 @@ void CShadowDepthView::Draw()
 		render->Push3DView( (*this), VIEW_CLEAR_DEPTH, m_pRenderTarget, GetFrustum() );
 	}
 
+#ifndef DEFERRED
+	pRenderContext.GetFrom( materials );
+	pRenderContext->PushRenderTargetAndViewport( m_pRenderTarget, m_pDepthTexture, 0, 0, m_pDepthTexture->GetMappingWidth(), m_pDepthTexture->GetMappingWidth() );
+	pRenderContext.SafeRelease();
+#endif
+
 	SetupCurrentView( origin, angles, VIEW_SHADOW_DEPTH_TEXTURE );
 
 	MDLCACHE_CRITICAL_SECTION();
@@ -6538,6 +6546,10 @@ void CShadowDepthView::Draw()
 		//Resolve() the depth texture here. Before the pop so the copy will recognize that the resolutions are the same
 		pRenderContext->CopyRenderTargetToTextureEx( m_pDepthTexture, -1, NULL, NULL );
 	}
+
+#ifndef DEFERRED
+	pRenderContext->PopRenderTargetAndViewport();
+#endif
 
 	render->PopView( GetFrustum() );
 
@@ -6943,9 +6955,9 @@ void CSimpleWorldView::Draw()
 
 	pRenderContext.SafeRelease();
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PushComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	DrawSetup( 0, m_DrawFlags, 0 );
 
@@ -6970,9 +6982,9 @@ void CSimpleWorldView::Draw()
 
 	DrawExecute( 0, CurrentViewID(), 0 );
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PopComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	pRenderContext.GetFrom( materials );
 	pRenderContext->ClearColor4ub( 0, 0, 0, 255 );
@@ -7035,14 +7047,14 @@ void CBaseWaterView::CSoftwareIntersectionView::Setup( bool bAboveWater )
 //-----------------------------------------------------------------------------
 void CBaseWaterView::CSoftwareIntersectionView::Draw()
 {
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PushComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 	DrawSetup( GetOuter()->m_waterHeight, m_DrawFlags, GetOuter()->m_waterZAdjust );
 	DrawExecute( GetOuter()->m_waterHeight, CurrentViewID(), GetOuter()->m_waterZAdjust );
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PopComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 }
 
 //-----------------------------------------------------------------------------
@@ -7140,17 +7152,17 @@ void CAboveWaterView::Draw()
 	}
 
 	// render the world
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PushComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	DrawSetup( m_waterHeight, m_DrawFlags, m_waterZAdjust );
 	EnableWorldFog();
 	DrawExecute( m_waterHeight, CurrentViewID(), m_waterZAdjust );
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PopComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	if ( m_waterInfo.m_bRefract )
 	{
@@ -7198,9 +7210,9 @@ void CAboveWaterView::CReflectionView::Setup( bool bReflectEntities )
 //-----------------------------------------------------------------------------
 void CAboveWaterView::CReflectionView::Draw()
 {
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PushComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 #ifdef PORTAL
 	GetPortalRender().WaterRenderingHandler_PreReflection();
 #endif
@@ -7224,9 +7236,9 @@ void CAboveWaterView::CReflectionView::Draw()
 	// deal with stencil
 	GetPortalRender().WaterRenderingHandler_PostReflection();
 #endif
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PopComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	// finish off the view and restore the previous view.
 	SetupCurrentView( origin, angles, ( view_id_t )nSaveViewID );
@@ -7257,9 +7269,9 @@ void CAboveWaterView::CRefractionView::Setup()
 //-----------------------------------------------------------------------------
 void CAboveWaterView::CRefractionView::Draw()
 {
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PushComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 #ifdef PORTAL
 	GetPortalRender().WaterRenderingHandler_PreRefraction();
 #endif
@@ -7278,9 +7290,9 @@ void CAboveWaterView::CRefractionView::Draw()
 	// deal with stencil
 	GetPortalRender().WaterRenderingHandler_PostRefraction();
 #endif
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PopComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	// finish off the view.  restore the previous view.
 	SetupCurrentView( origin, angles, ( view_id_t )nSaveViewID );
@@ -7307,9 +7319,9 @@ void CAboveWaterView::CIntersectionView::Setup()
 //-----------------------------------------------------------------------------
 void CAboveWaterView::CIntersectionView::Draw()
 {
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PushComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	DrawSetup( GetOuter()->m_fogInfo.m_flWaterHeight, m_DrawFlags, 0 );
 
@@ -7319,9 +7331,9 @@ void CAboveWaterView::CIntersectionView::Draw()
 	CMatRenderContextPtr pRenderContext( materials );
 	pRenderContext->ClearColor4ub( 0, 0, 0, 255 );
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PopComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 }
 
 
@@ -7399,18 +7411,18 @@ void CUnderWaterView::Draw()
 		pRenderContext->ClearColor4ub( ucFogColor[0], ucFogColor[1], ucFogColor[2], 255 );
 	}
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PushComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	DrawSetup( m_waterHeight, m_DrawFlags, m_waterZAdjust );
 	SetFogVolumeState( m_fogInfo, false );
 	DrawExecute( m_waterHeight, CurrentViewID(), m_waterZAdjust );
 	m_ClearFlags = 0;
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PopComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	if( m_waterZAdjust != 0.0f && m_bSoftwareUserClipPlane && m_waterInfo.m_bRefract )
 	{
@@ -7456,18 +7468,18 @@ void CUnderWaterView::CRefractionView::Draw()
 	pRenderContext->GetFogColor( ucFogColor );
 	pRenderContext->ClearColor4ub( ucFogColor[0], ucFogColor[1], ucFogColor[2], 255 );
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PushComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	DrawSetup( GetOuter()->m_waterHeight, m_DrawFlags, GetOuter()->m_waterZAdjust );
 
 	EnableWorldFog();
 	DrawExecute( GetOuter()->m_waterHeight, VIEW_REFRACTION, GetOuter()->m_waterZAdjust );
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	PopComposite();
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	Rect_t srcRect;
 	srcRect.x = x;
@@ -7643,7 +7655,7 @@ void FrustumCache_t::Add( const CViewSetup *pView, int iSlot )
 }
 
 // Deferred views implementations
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 
 //-----------------------------------------------------------------------------
 // Draws the world + entities
@@ -8367,4 +8379,4 @@ void CSpotLightShadowBlendView::CommitData()
 	CMatRenderContextPtr pRenderContext( materials );
 	pRenderContext->SetIntRenderingParameter( INT_RENDERPARM_DEFERRED_SHADOW_INDEX, m_iIndex );
 }
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID

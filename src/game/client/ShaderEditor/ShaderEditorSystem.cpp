@@ -214,6 +214,11 @@ void ShaderEditorHandler::CustomPostRender()
 
 struct CallbackData_t
 {
+	CallbackData_t()
+	{
+		mat_View.Identity();
+	}
+
 	void Reset()
 	{
 		sun_data.Init();
@@ -221,15 +226,23 @@ struct CallbackData_t
 
 		player_speed.Init();
 		player_pos.Init();
-	};
+	}
+
 	Vector4D sun_data;
 	Vector sun_dir;
 
 	Vector4D player_speed;
 	Vector player_pos;
+
+	VMatrix mat_View;
 };
 
 static CallbackData_t clCallback_data;
+
+void ShaderEditorHandler::SetMainViewMatrix( const VMatrix& m )
+{
+	clCallback_data.mat_View = m;
+}
 
 void ShaderEditorHandler::PrepareCallbackData()
 {
@@ -317,6 +330,27 @@ pFnClCallback_Declare( ClCallback_PlayerPos )
 	m_Lock.Unlock();
 }
 
+pFnClCallback_Declare( ClCallback_MainView_Row0 )
+{
+	m_Lock.Lock();
+	Q_memcpy( pfl4, clCallback_data.mat_View.m[0], sizeof( float ) * 3 );
+	m_Lock.Unlock();
+}
+
+pFnClCallback_Declare( ClCallback_MainView_Row1 )
+{
+	m_Lock.Lock();
+	Q_memcpy( pfl4, clCallback_data.mat_View.m[1], sizeof( float ) * 3 );
+	m_Lock.Unlock();
+}
+
+pFnClCallback_Declare( ClCallback_MainView_Row2 )
+{
+	m_Lock.Lock();
+	Q_memcpy( pfl4, clCallback_data.mat_View.m[2], sizeof( float ) * 3 );
+	m_Lock.Unlock();
+}
+
 void ShaderEditorHandler::RegisterCallbacks()
 {
 	if ( !IsReady() )
@@ -327,6 +361,9 @@ void ShaderEditorHandler::RegisterCallbacks()
 	shaderEdit->RegisterClientCallback( "sun dir", ClCallback_SunDirection, 3 );
 	shaderEdit->RegisterClientCallback( "local player velocity", ClCallback_PlayerVelocity, 4 );
 	shaderEdit->RegisterClientCallback( "local player position", ClCallback_PlayerPos, 3 );
+	shaderEdit->RegisterClientCallback( "main view row 0", ClCallback_MainView_Row0, 3 );
+	shaderEdit->RegisterClientCallback( "main view row 1", ClCallback_MainView_Row1, 3 );
+	shaderEdit->RegisterClientCallback( "main view row 2", ClCallback_MainView_Row2, 3 );
 
 	shaderEdit->LockClientCallbacks();
 }

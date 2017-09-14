@@ -35,7 +35,11 @@ extern ConVar deferred_radiosity_debug;
 
 #define PATHLOCATION_PROJECTABLE_SCRIPTS "scripts/vguiprojected"
 
-#include "../../materialsystem/stdshaders/IDeferredExt.h"
+#ifdef DEFERRED_HYBRID
+#include "../../materialsystem/deferredshaders_hybrid/IDeferredExt.h"
+#else
+#include "../../materialsystem/deferredshaders/IDeferredExt.h"
+#endif
 
 #include "deferred/deferred_rt.h"
 #include "deferred/IDefCookie.h"

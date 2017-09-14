@@ -1,7 +1,7 @@
 #ifndef C_LIGHT_MANAGER_H
 #define C_LIGHT_MANAGER_H
 
-#include "cbase.h"
+#include "deferred/deferred_shared_common.h"
 
 class CViewSetup;
 class CViewRender;

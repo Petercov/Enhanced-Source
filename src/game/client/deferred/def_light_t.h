@@ -1,8 +1,6 @@
 #ifndef DEF_LIGHT_H
 #define DEF_LIGHT_H
 
-#include "cbase.h"
-
 class CMeshBuilder;
 class IDefCookie;
 

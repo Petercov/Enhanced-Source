@@ -16,8 +16,10 @@
 #include "iviewrender.h"
 #include "view_shared.h"
 
-#ifdef DEFERRED
-#include "../../materialsystem/stdshaders/deferred_global_common.h"
+#ifdef DEFERRED_HYBRID
+#include "../../materialsystem/deferredshaders_hybrid/deferred_global_common.h"
+#elif DEFERRED
+#include "../../materialsystem/deferredshaders/deferred_global_common.h"
 #endif // DEFERRED
 
 //-----------------------------------------------------------------------------

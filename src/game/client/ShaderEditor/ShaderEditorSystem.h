@@ -23,6 +23,8 @@ public:
 	virtual void InitialPreRender();
 	virtual void PostRender();
 
+	void SetMainViewMatrix( const VMatrix& );
+
 #ifdef SOURCE_2006
 	void CustomViewRender( int *viewId, const VisibleFogVolumeInfo_t &fogVolumeInfo );
 #else

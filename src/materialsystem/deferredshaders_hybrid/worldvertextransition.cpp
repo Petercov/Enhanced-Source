@@ -10,7 +10,6 @@
 #include "convar.h"
 
 #include "lightmappedgeneric_dx9_helper.h"
-#include "worldvertextransition_dx8_helper.h"
 
 #ifdef DEFERRED
 #include "IDeferredExt.h"
@@ -78,16 +77,6 @@ BEGIN_VS_SHADER( WorldVertexTransition_DX9, "Help for WorldVertexTransition" )
 		SHADER_PARAM( OFFSETTEXTURE, SHADER_PARAM_TYPE_TEXTURE, "", "Offset texture" )
 		SHADER_PARAM( OFFSETSCALE, SHADER_PARAM_TYPE_TEXTURE, "", "Offset texture" )
 	END_SHADER_PARAMS
-
-	void SetupVars( WorldVertexTransitionEditor_DX8_Vars_t& info )
-	{
-		info.m_nBaseTextureVar = BASETEXTURE;
-		info.m_nBaseTextureFrameVar = FRAME;
-		info.m_nBaseTextureTransformVar = BASETEXTURETRANSFORM;
-		info.m_nBaseTexture2Var = BASETEXTURE2;
-		info.m_nBaseTexture2FrameVar = FRAME2;
-		info.m_nBaseTexture2TransformVar = BASETEXTURETRANSFORM; // FIXME!!!!
-	}
 
 	void SetupVars( LightmappedGeneric_DX9_Vars_t& info )
 	{

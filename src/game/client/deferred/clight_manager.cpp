@@ -1127,7 +1127,7 @@ void CLightingManager::RenderLights( const CViewSetup &view, CViewRender *pCalle
 						data.mData.iLOD = iVolumeLOD;
 #endif
 #if DEFCFG_CONFIGURABLE_VOLUMETRIC_LOD
-						data.mData.iSamples = entry.pLight->iVolumeSamples;
+						data.mData.iSamples = Clamp( entry.pLight->iVolumeSamples, 0, 100 );
 #endif
 						QUEUE_FIRE( defData_Volume, Fire, data );
 
@@ -1434,7 +1434,7 @@ void CLightingManager::RenderLights( const CViewSetup &view, CViewRender *pCalle
 				data.mData.iLOD = iVolumeLOD;
 #endif
 #if DEFCFG_CONFIGURABLE_VOLUMETRIC_LOD
-				data.mData.iSamples = l->iVolumeSamples;
+				data.mData.iSamples = Clamp( l->iVolumeSamples, 0, 100 );
 #endif
 				QUEUE_FIRE( defData_Volume, Fire, data );
 
