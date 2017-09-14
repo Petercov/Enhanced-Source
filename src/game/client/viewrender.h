@@ -35,14 +35,15 @@ class CClientViewSetup;
 class CViewRender;
 struct ClientWorldListInfo_t;
 class C_BaseEntity;
+class CRendering3dView;
 
 #ifdef HL2_EPISODIC
 	class CStunEffect;
 #endif // HL2_EPISODIC
 
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	struct def_light_t;
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 //-----------------------------------------------------------------------------
 // Data specific to intro mode to control rendering.
@@ -211,94 +212,6 @@ struct FrustumCache_t
 };
 
 FrustumCache_t *FrustumCache( void );
-
-//-----------------------------------------------------------------------------
-// Base class for 3d views
-//-----------------------------------------------------------------------------
-class CRendering3dView : public CBase3dView
-{
-	DECLARE_CLASS( CRendering3dView, CBase3dView );
-public:
-	CRendering3dView( CViewRender *pMainView );
-	virtual ~CRendering3dView() { ReleaseLists(); }
-
-	void Setup( const CViewSetup &setup );
-
-	// What are we currently rendering? Returns a combination of DF_ flags.
-	virtual int		GetDrawFlags();
-
-	virtual void	Draw() {};
-
-protected:
-
-	// Fog setup
-	void			EnableWorldFog( void );
-	void			SetFogVolumeState( const VisibleFogVolumeInfo_t &fogInfo, bool bUseHeightFog );
-
-	// Draw setup
-	void			SetupRenderablesList( int viewID );
-
-	// If iForceViewLeaf is not -1, then it uses the specified leaf as your starting area for setting up area portal culling.
-	// This is used by water since your reflected view origin is often in solid space, but we still want to treat it as though
-	// the first portal we're looking out of is a water portal, so our view effectively originates under the water.
-	void			BuildWorldRenderLists( bool bDrawEntities, int iForceViewLeaf = -1, bool bUseCacheIfEnabled = true, bool bShadowDepth = false, float *pReflectionWaterHeight = NULL );
-
-	// Purpose: Builds render lists for renderables. Called once for refraction, once for over water
-	void			BuildRenderableRenderLists( int viewID );
-
-	// More concise version of the above BuildRenderableRenderLists().  Called for shadow depth map rendering
-	void			BuildShadowDepthRenderableRenderLists();
-
-	void			DrawWorld( float waterZAdjust );
-
-	// Draws all opaque/translucent renderables in leaves that were rendered
-	void			DrawOpaqueRenderables( bool bShadowDepth );
-	void			DrawTranslucentRenderables( bool bInSkybox, bool bShadowDepth );
-
-	// Renders all translucent entities in the render list
-	void			DrawTranslucentRenderablesNoWorld( bool bInSkybox );
-
-	// Renders all translucent entities in the render list that ignore the z-buffer
-	void			DrawNoZBufferTranslucentRenderables( void );
-
-	// Renders all translucent world surfaces in a particular set of leaves
-	void			DrawTranslucentWorldInLeaves( bool bShadowDepth );
-
-	// Renders all translucent world + detail objects in a particular set of leaves
-	void			DrawTranslucentWorldAndDetailPropsInLeaves( int iCurLeaf, int iFinalLeaf, int nEngineDrawFlags, int &nDetailLeafCount, LeafIndex_t* pDetailLeafList, bool bShadowDepth );
-
-	// Purpose: Computes the actual world list info based on the render flags
-	void			PruneWorldListInfo();
-
-	// Sets up automatic z-prepass on the 360. No-op on PC.
-	void			Begin360ZPass();
-	void			End360ZPass();
-
-#ifdef DEFERRED
-	void			PushComposite();
-	void			PopComposite();
-
-	static void PushGBuffer( bool bInitial, float zScale = 1.0f, bool bClearDepth = true );
-	static void PopGBuffer();
-#endif // DEFERRED
-
-#ifdef PORTAL
-	virtual bool	ShouldDrawPortals() { return true; }
-#endif
-
-	void ReleaseLists();
-
-	//-----------------------------------------------
-	// Combination of DF_ flags.
-	int m_DrawFlags;
-	int m_ClearFlags;
-
-	IWorldRenderList *m_pWorldRenderList;
-	CClientRenderablesList *m_pRenderablesList;
-	ClientWorldListInfo_t *m_pWorldListInfo;
-	ViewCustomVisibility_t *m_pCustomVisibility;
-};
-
 
 //-----------------------------------------------------------------------------
 // 
@@ -476,7 +389,7 @@ protected:
 
 	// Drawing primitives
 	bool			ShouldDrawViewModel( bool drawViewmodel );
-	void			DrawViewModels( const CViewSetup &view, bool drawViewmodel );
+	void			DrawViewModels( const CViewSetup &view, bool drawViewmodel, bool bGbuffer );
 
 	void			PerformScreenSpaceEffects( int x, int y, int w, int h );
 
@@ -512,7 +425,7 @@ protected:
 	void			DrawLetterBoxRectangles( int nSlot, const CUtlVector< vrect_t >& vecLetterBoxRectangles );
 
 	// Deferred rendering
-#ifdef DEFERRED
+#ifdef DEFERRED_HYBRID
 	void			ProcessDeferredGlobals( const CViewSetup &view );
 
 	void			ViewDrawGBuffer( const CViewSetup &view, bool &bDrew3dSkybox, SkyboxVisibility_t &nSkyboxVisible,
@@ -541,7 +454,7 @@ protected:
 	Vector m_vecRadiosityOrigin[2];
 	IMesh *m_pMesh_RadiosityScreenGrid[2];
 	CUtlVector< IMesh* > m_hRadiosityDebugMeshList[2];
-#endif // DEFERRED
+#endif // DEFERRED_HYBRID
 
 	// This stores the current view
  	CViewSetup		m_CurrentView;
@@ -601,6 +514,98 @@ protected:
 
 	CON_COMMAND_MEMBER_F( CViewRender, "screenfademinsize", OnScreenFadeMinSize, "Modify global screen fade min size in pixels", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
 	CON_COMMAND_MEMBER_F( CViewRender, "screenfademaxsize", OnScreenFadeMaxSize, "Modify global screen fade max size in pixels", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
+
+	friend class CRendering3dView;
+};
+
+
+//-----------------------------------------------------------------------------
+// Base class for 3d views
+//-----------------------------------------------------------------------------
+class CRendering3dView : public CBase3dView
+{
+	DECLARE_CLASS( CRendering3dView, CBase3dView );
+public:
+	CRendering3dView( CViewRender *pMainView );
+	virtual ~CRendering3dView() { ReleaseLists(); }
+
+	void Setup( const CViewSetup &setup );
+
+	// What are we currently rendering? Returns a combination of DF_ flags.
+	virtual int		GetDrawFlags();
+
+	virtual void	Draw() {};
+
+protected:
+
+	// Fog setup
+	void			EnableWorldFog( void );
+	void			SetFogVolumeState( const VisibleFogVolumeInfo_t &fogInfo, bool bUseHeightFog );
+
+	// Draw setup
+	void			SetupRenderablesList( int viewID );
+
+	// If iForceViewLeaf is not -1, then it uses the specified leaf as your starting area for setting up area portal culling.
+	// This is used by water since your reflected view origin is often in solid space, but we still want to treat it as though
+	// the first portal we're looking out of is a water portal, so our view effectively originates under the water.
+	void			BuildWorldRenderLists( bool bDrawEntities, int iForceViewLeaf = -1, bool bUseCacheIfEnabled = true, bool bShadowDepth = false, float *pReflectionWaterHeight = NULL );
+
+	// Purpose: Builds render lists for renderables. Called once for refraction, once for over water
+	void			BuildRenderableRenderLists( int viewID );
+
+	// More concise version of the above BuildRenderableRenderLists().  Called for shadow depth map rendering
+	void			BuildShadowDepthRenderableRenderLists();
+
+	void			DrawWorld( float waterZAdjust );
+
+	// Draws all opaque/translucent renderables in leaves that were rendered
+	void			DrawOpaqueRenderables( bool bShadowDepth );
+	void			DrawTranslucentRenderables( bool bInSkybox, bool bShadowDepth );
+
+	// Renders all translucent entities in the render list
+	void			DrawTranslucentRenderablesNoWorld( bool bInSkybox );
+
+	// Renders all translucent entities in the render list that ignore the z-buffer
+	void			DrawNoZBufferTranslucentRenderables( void );
+
+	// Renders all translucent world surfaces in a particular set of leaves
+	void			DrawTranslucentWorldInLeaves( bool bShadowDepth );
+
+	// Renders all translucent world + detail objects in a particular set of leaves
+	void			DrawTranslucentWorldAndDetailPropsInLeaves( int iCurLeaf, int iFinalLeaf, int nEngineDrawFlags, int &nDetailLeafCount, LeafIndex_t* pDetailLeafList, bool bShadowDepth );
+
+	// Purpose: Computes the actual world list info based on the render flags
+	void			PruneWorldListInfo();
+
+	// Sets up automatic z-prepass on the 360. No-op on PC.
+	void			Begin360ZPass();
+	void			End360ZPass();
+
+#ifdef DEFERRED_HYBRID
+	static void PushComposite();
+	static void		PopComposite();
+
+	static void PushGBuffer( bool bInitial, float zScale = 1.0f, bool bClearDepth = true );
+	static void PopGBuffer();
+#endif // DEFERRED_HYBRID
+
+#ifdef PORTAL
+	virtual bool	ShouldDrawPortals() { return true; }
+#endif
+
+	void ReleaseLists();
+
+	//-----------------------------------------------
+	// Combination of DF_ flags.
+	int m_DrawFlags;
+	int m_ClearFlags;
+
+	IWorldRenderList *m_pWorldRenderList;
+	CClientRenderablesList *m_pRenderablesList;
+	ClientWorldListInfo_t *m_pWorldListInfo;
+	ViewCustomVisibility_t *m_pCustomVisibility;
+
+	friend void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel, bool bGBuffer );
 };
 
 #endif // VIEWRENDER_H

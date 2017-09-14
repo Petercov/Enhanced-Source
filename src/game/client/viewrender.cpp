@@ -1294,7 +1294,7 @@ void CViewRender::DrawRenderablesInList( CViewModelRenderablesList::RenderGroups
 // Purpose: Actually draw the view model
 // Input  : drawViewModel - 
 //-----------------------------------------------------------------------------
-void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel )
+void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel, bool bGBuffer )
 {
 	VPROF( "CViewRender::DrawViewModel" );
 
@@ -1339,6 +1339,16 @@ void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel )
 	const bool bUseDepthHack = true;
 #endif
 
+	if ( bGBuffer )
+	{
+		const float flViewmodelScale = view.zFarViewmodel / view.zFar;
+		CRendering3dView::PushGBuffer( false, flViewmodelScale, false );
+	}
+	else
+	{
+		CRendering3dView::PushComposite();
+	}
+
 	// FIXME: Add code to read the current depth range
 	float depthmin = 0.0f;
 	float depthmax = 1.0f;
@@ -1381,17 +1391,23 @@ void CViewRender::DrawViewModels( const CViewSetup &view, bool drawViewmodel )
 	// Update refract for opaque models & draw
 	bool bUpdatedRefractForOpaque = UpdateRefractIfNeededByList( opaqueList );
 	DrawRenderablesInList( opaqueList );
-
-	// Update refract for translucent models (if we didn't already update it above) & draw
-	if ( !bUpdatedRefractForOpaque ) // Only do this once for better perf
+	
+	if ( !bGBuffer )
 	{
-		UpdateRefractIfNeededByList( translucentList );
+		// Update refract for translucent models (if we didn't already update it above) & draw
+		if ( !bUpdatedRefractForOpaque ) // Only do this once for better perf
+		{
+			UpdateRefractIfNeededByList( translucentList );
+		}
+		DrawRenderablesInList( translucentList, STUDIO_TRANSPARENCY );
 	}
-	DrawRenderablesInList( translucentList, STUDIO_TRANSPARENCY );
 
 	// Reset the depth range to the original values
 	if( bUseDepthHack )
 		pRenderContext->DepthRange( depthmin, depthmax );
+
+	if ( bGBuffer )
+		CRendering3dView::PopGBuffer();
 
 	render->PopView( GetFrustum() );
 
@@ -2482,7 +2498,7 @@ void CViewRender::ViewDrawGBuffer( const CViewSetup &view, bool &bDrew3dSkybox, 
 	pGBufferView->Setup( view, bDrew3dSkybox );
 	AddViewToScene( pGBufferView );
 
-	DrawViewModels( view, bDrawViewModel/*, true*/ );
+	DrawViewModels( view, bDrawViewModel, true );
 	 
 	g_CurrentViewID = oldViewID;
 }
@@ -3235,8 +3251,6 @@ void CViewRender::RenderView( const CViewSetup &view, const CViewSetup &hudViewS
 		}
 	#endif
 
-
-
 		g_bRenderingView = true;
 
 		RenderPreScene( worldView );
@@ -3392,7 +3406,7 @@ void CViewRender::RenderView( const CViewSetup &view, const CViewSetup &hudViewS
 		#endif
 
 		// Now actually draw the viewmodel
-		DrawViewModels( worldView, whatToDraw & RENDERVIEW_DRAWVIEWMODEL );
+		DrawViewModels( worldView, whatToDraw & RENDERVIEW_DRAWVIEWMODEL, false );
 
 #ifdef SHADEREDITOR
 		g_ShaderEditorSystem->UpdateSkymask( bDrew3dSkybox, view.x, view.y, view.width, view.height );
